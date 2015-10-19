@@ -2,53 +2,14 @@ package client
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/hyperhq/hyper/engine"
 	"github.com/hyperhq/runv/hypervisor/types"
 
 	gflag "github.com/jessevdk/go-flags"
 )
-
-// We need to process the POD json data with the given file
-func (cli *HyperClient) HyperCmdPod(args ...string) error {
-	t1 := time.Now()
-	var parser = gflag.NewParser(nil, gflag.Default)
-	parser.Usage = "pod POD_FILE\n\nCreate a pod, initialize a pod and run it"
-	args, err := parser.Parse()
-	if err != nil {
-		if !strings.Contains(err.Error(), "Usage") {
-			return err
-		} else {
-			return nil
-		}
-	}
-	if len(args) < 2 {
-		return fmt.Errorf("\"pod\" requires a minimum of 1 argument, please provide POD spec file.\n")
-	}
-	jsonFile := args[1]
-	if _, err := os.Stat(jsonFile); err != nil {
-		return err
-	}
-
-	jsonbody, err := ioutil.ReadFile(jsonFile)
-	if err != nil {
-		return err
-	}
-	podId, err := cli.RunPod(string(jsonbody), false)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(cli.out, "POD id is %s\n", podId)
-	t2 := time.Now()
-	fmt.Fprintf(cli.out, "Time to run a POD is %d ms\n", (t2.UnixNano()-t1.UnixNano())/1000000)
-
-	return nil
-}
 
 func (cli *HyperClient) CreatePod(jsonbody string, remove bool) (string, error) {
 	v := url.Values{}
@@ -193,47 +154,6 @@ func (cli *HyperClient) startPodWithoutTty(v *url.Values) (string, error) {
 
 	body, _, err := readBody(cli.call("POST", "/pod/start?"+v.Encode(), nil, nil))
 	if err != nil {
-		return "", err
-	}
-	out := engine.NewOutput()
-	remoteInfo, err := out.AddEnv()
-	if err != nil {
-		return "", err
-	}
-
-	if _, err := out.Write(body); err != nil {
-		return "", fmt.Errorf("Error reading remote info: %s", err)
-	}
-	out.Close()
-	errCode := remoteInfo.GetInt("Code")
-	if errCode != types.E_OK {
-		if errCode != types.E_BAD_REQUEST &&
-			errCode != types.E_FAILED {
-			return "", fmt.Errorf("Error code is %d", errCode)
-		} else {
-			return "", fmt.Errorf("Cause is %s", remoteInfo.Get("Cause"))
-		}
-	}
-	return remoteInfo.Get("ID"), nil
-}
-
-func (cli *HyperClient) RunPod(podstring string, autoremove bool) (string, error) {
-	v := url.Values{}
-	v.Set("podArgs", podstring)
-	if autoremove == true {
-		v.Set("remove", "yes")
-	} else {
-		v.Set("remove", "no")
-	}
-	body, statusCode, err := readBody(cli.call("POST", "/pod/run?"+v.Encode(), nil, nil))
-	if statusCode == 404 {
-		if err := cli.PullImages(podstring); err != nil {
-			return "", fmt.Errorf("failed to pull images: %s", err.Error())
-		}
-		if body, _, err = readBody(cli.call("POST", "/pod/run?"+v.Encode(), nil, nil)); err != nil {
-			return "", err
-		}
-	} else if err != nil {
 		return "", err
 	}
 	out := engine.NewOutput()
