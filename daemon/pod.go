@@ -1240,8 +1240,7 @@ func (p *Pod) Start(daemon *Daemon, vmId string, lazy bool, streams []*hyperviso
 		preparing bool  = true
 	)
 
-	if p.PodStatus.Status == types.S_POD_RUNNING ||
-		(p.PodStatus.Type == "kubernetes" && p.PodStatus.Status != types.S_POD_CREATED) {
+	if p.PodStatus.Status == types.S_POD_RUNNING {
 		estr := fmt.Sprintf("invalid pod status for start %v", p.PodStatus.Status)
 		glog.Warning(estr)
 		return nil, errors.New(estr)
@@ -1314,32 +1313,6 @@ func hyperHandlePodEvent(vmResponse *types.VmResponse, data interface{},
 		stopLogger(mypod)
 		daemon.PodStopped(mypod.Id)
 
-		if mypod.Type == "kubernetes" {
-			cleanup := false
-			switch mypod.Status {
-			case types.S_POD_SUCCEEDED:
-				if mypod.RestartPolicy == "always" {
-					daemon.RestartPod(mypod)
-					break
-				}
-				cleanup = true
-			case types.S_POD_FAILED:
-				if mypod.RestartPolicy != "never" {
-					daemon.RestartPod(mypod)
-					break
-				}
-				cleanup = true
-			default:
-				break
-			}
-			if cleanup {
-				pod, ok := daemon.PodList.Get(mypod.Id)
-				if ok {
-					daemon.RemovePodContainer(pod)
-				}
-				daemon.DeleteVolumeId(mypod.Id)
-			}
-		}
 		return true
 	}
 

@@ -24,7 +24,6 @@ import (
 func (cli *HyperClient) HyperCmdRun(args ...string) (err error) {
 	var opts struct {
 		PodFile       string   `short:"p" long:"podfile" value-name:"\"\"" description:"Create and Run a pod based on the pod file"`
-		K8s           string   `short:"k" long:"kubernetes" value-name:"\"\"" description:"Create and Run a pod based on the kubernetes pod file"`
 		Yaml          bool     `short:"y" long:"yaml" default:"false" default-mask:"-" description:"Create a pod based on Yaml file"`
 		Name          string   `long:"name" value-name:"\"\"" description:"Assign a name to the container"`
 		Attach        bool     `short:"a" long:"attach" default:"false" default-mask:"-" description:"(from podfile) Attach the stdin, stdout and stderr to the container"`
@@ -178,22 +177,6 @@ func (cli *HyperClient) JsonFromFile(filename string, yaml, k8s bool) (string, e
 		}
 	}
 
-	if k8s {
-		var kpod pod.KPod
-
-		if err := json.Unmarshal(jsonbody, &kpod); err != nil {
-			return "", err
-		}
-		userpod, err := kpod.Convert()
-		if err != nil {
-			return "", err
-		}
-		jsonbody, err = json.Marshal(*userpod)
-		if err != nil {
-			return "", err
-		}
-	}
-
 	return string(jsonbody), nil
 }
 
@@ -283,6 +266,7 @@ func (cli *HyperClient) JsonFromCmdline(cmdArgs, cmdEnvs, cmdPortmaps []string, 
 		Volumes:       volumesRef,
 		Files:         []pod.UserFileReference{},
 		RestartPolicy: cmdRestartPolicy,
+		Tty:           tty,
 	}}
 
 	userPod := &pod.UserPod{
@@ -296,7 +280,6 @@ func (cli *HyperClient) JsonFromCmdline(cmdArgs, cmdEnvs, cmdPortmaps []string, 
 			Type:   cmdLogDriver,
 			Config: logOpts,
 		},
-		Tty: tty,
 	}
 
 	jsonString, _ := json.Marshal(userPod)

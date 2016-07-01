@@ -64,12 +64,6 @@ func (daemon *Daemon) StopPod(podId string) (int, string, error) {
 }
 
 func (daemon *Daemon) StopPodWithinLock(pod *Pod) (int, string, error) {
-	// we need to set the 'RestartPolicy' of the pod to 'never' if stop command is invoked
-	// for kubernetes
-	if pod.PodStatus.Type == "kubernetes" {
-		pod.PodStatus.RestartPolicy = "never"
-	}
-
 	pod.Lock()
 	if pod.VM == nil {
 		pod.Unlock()

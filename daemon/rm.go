@@ -63,9 +63,7 @@ func (daemon *Daemon) RemovePodResource(p *Pod) {
 	os.RemoveAll(path.Join(utils.HYPER_ROOT, "services", p.Id))
 	os.RemoveAll(path.Join(utils.HYPER_ROOT, "hosts", p.Id))
 
-	if p.PodStatus.Type != "kubernetes" {
-		daemon.RemovePodContainer(p)
-	}
+	daemon.RemovePodContainer(p)
 	daemon.DeleteVolumeId(p.Id)
 	daemon.db.DeletePod(p.Id)
 	daemon.RemovePod(p.Id)
