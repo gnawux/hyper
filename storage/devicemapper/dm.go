@@ -220,7 +220,7 @@ func CreatePool(dm *DeviceMapper) error {
 	return nil
 }
 
-func CreateVolume(poolName, volName, dev_id string, size int, restore bool) error {
+func CreateVolume(poolName, volName, dev_id, mkfs string, size int, restore bool) error {
 	glog.Infof("/dev/mapper/%s", volName)
 	if _, err := os.Stat("/dev/mapper/" + volName); err == nil {
 		return nil
@@ -239,7 +239,7 @@ func CreateVolume(poolName, volName, dev_id string, size int, restore bool) erro
 	}
 
 	if restore == false {
-		parms = fmt.Sprintf("mkfs.ext4 \"/dev/mapper/%s\"", volName)
+		parms = fmt.Sprintf("%s \"/dev/mapper/%s\"", mkfs, volName)
 		if res, err := exec.Command("/bin/sh", "-c", parms).CombinedOutput(); err != nil {
 			glog.Error(string(res))
 			return fmt.Errorf(string(res))
