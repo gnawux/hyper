@@ -1027,26 +1027,42 @@ func (m *UserContainerPort) String() string { return proto.CompactTextString(m) 
 func (*UserContainerPort) ProtoMessage()    {}
 
 type UserVolumeReference struct {
-	Path     string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Volume   string `protobuf:"bytes,2,opt,name=volume,proto3" json:"volume,omitempty"`
-	ReadOnly bool   `protobuf:"varint,3,opt,name=readOnly,proto3" json:"readOnly,omitempty"`
+	Path     string      `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Volume   string      `protobuf:"bytes,2,opt,name=volume,proto3" json:"volume,omitempty"`
+	ReadOnly bool        `protobuf:"varint,3,opt,name=readOnly,proto3" json:"readOnly,omitempty"`
+	Detail   *UserVolume `protobuf:"bytes,4,opt,name=detail" json:"detail,omitempty"`
 }
 
 func (m *UserVolumeReference) Reset()         { *m = UserVolumeReference{} }
 func (m *UserVolumeReference) String() string { return proto.CompactTextString(m) }
 func (*UserVolumeReference) ProtoMessage()    {}
 
+func (m *UserVolumeReference) GetDetail() *UserVolume {
+	if m != nil {
+		return m.Detail
+	}
+	return nil
+}
+
 type UserFileReference struct {
-	Path     string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Filename string `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	Perm     string `protobuf:"bytes,3,opt,name=perm,proto3" json:"perm,omitempty"`
-	User     string `protobuf:"bytes,4,opt,name=user,proto3" json:"user,omitempty"`
-	Group    string `protobuf:"bytes,5,opt,name=group,proto3" json:"group,omitempty"`
+	Path     string    `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Filename string    `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	Perm     string    `protobuf:"bytes,3,opt,name=perm,proto3" json:"perm,omitempty"`
+	User     string    `protobuf:"bytes,4,opt,name=user,proto3" json:"user,omitempty"`
+	Group    string    `protobuf:"bytes,5,opt,name=group,proto3" json:"group,omitempty"`
+	Detail   *UserFile `protobuf:"bytes,6,opt,name=detail" json:"detail,omitempty"`
 }
 
 func (m *UserFileReference) Reset()         { *m = UserFileReference{} }
 func (m *UserFileReference) String() string { return proto.CompactTextString(m) }
 func (*UserFileReference) ProtoMessage()    {}
+
+func (m *UserFileReference) GetDetail() *UserFile {
+	if m != nil {
+		return m.Detail
+	}
+	return nil
+}
 
 type UserUser struct {
 	Name             string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1161,8 +1177,9 @@ func (*UserVolumeOption) ProtoMessage()    {}
 type UserVolume struct {
 	Name   string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Source string            `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	Driver string            `protobuf:"bytes,3,opt,name=driver,proto3" json:"driver,omitempty"`
+	Format string            `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
 	Option *UserVolumeOption `protobuf:"bytes,4,opt,name=option" json:"option,omitempty"`
+	Fstype string            `protobuf:"bytes,5,opt,name=fstype,proto3" json:"fstype,omitempty"`
 }
 
 func (m *UserVolume) Reset()         { *m = UserVolume{} }

@@ -357,9 +357,10 @@ message UserContainerPort {
 }
 
 message UserVolumeReference {
-  string path   = 1;
-  string volume = 2;
-  bool readOnly = 3;
+  string path       = 1;
+  string volume     = 2;
+  bool readOnly     = 3;
+  UserVolume detail = 4;
 }
 
 message UserFileReference {
@@ -368,6 +369,7 @@ message UserFileReference {
   string perm     = 3;
   string user     = 4;
   string group    = 5;
+  UserFile detail = 6;
 }
 
 message UserUser {
@@ -414,8 +416,9 @@ message UserVolumeOption {
 message UserVolume {
   string name             = 1;
   string source           = 2;
-  string driver           = 3;
+  string format           = 3;
   UserVolumeOption option = 4;
+  string fstype           = 5;
 }
 
 message UserInterface {
