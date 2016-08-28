@@ -13,7 +13,6 @@ import (
 
 func (daemon *Daemon) Attach(stdin io.ReadCloser, stdout io.WriteCloser, container string) error {
 	var (
-		vmId string
 		err  error
 	)
 
@@ -23,29 +22,14 @@ func (daemon *Daemon) Attach(stdin io.ReadCloser, stdout io.WriteCloser, contain
 		Callback: make(chan *types.VmResponse, 1),
 	}
 
-	pod, idx, err := daemon.GetPodByContainerIdOrName(container)
-	if err != nil {
-		return err
-	}
-
-	vmId, err = daemon.GetVmByPodId(pod.Id)
-	if err != nil {
-		return err
-	}
-
-	vm, ok := daemon.VmList.Get(vmId)
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(container)
 	if !ok {
-		err = fmt.Errorf("Can find VM whose Id is %s!", vmId)
+		err = fmt.Errorf("cannot find container %s", container)
+		glog.Error(err)
 		return err
 	}
 
-	if !pod.Spec.Containers[idx].Tty {
-		tty.Stderr = stdcopy.NewStdWriter(stdout, stdcopy.Stderr)
-		tty.Stdout = stdcopy.NewStdWriter(stdout, stdcopy.Stdout)
-		tty.OutCloser = stdout
-	}
-
-	err = vm.Attach(tty, container, nil)
+	err = p.Attach(tty, id)
 	if err != nil {
 		return err
 	}

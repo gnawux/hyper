@@ -339,7 +339,7 @@ func (p *Pod) Attach(tty *hypervisor.TtyIO, id string) error {
 	}
 
 	if tty.Stdout != nil {
-		if desc, ok := p.runtimeConfig.containers[id]; ok && desc.Tty{
+		if desc, ok := p.runtimeConfig.containers[id]; ok && !desc.Tty{
 			tty.Stderr = stdcopy.NewStdWriter(tty.Stdout, stdcopy.Stderr)
 			tty.Stdout = stdcopy.NewStdWriter(tty.Stdout, stdcopy.Stdout)
 		}
