@@ -24,16 +24,6 @@ import (
 	"github.com/hyperhq/hyperd/daemon/daemondb"
 )
 
-const (
-	DEFAULT_DM_POOL      string = "hyper-volume-pool"
-	DEFAULT_DM_POOL_SIZE int    = 20971520 * 512
-	DEFAULT_DM_DATA_LOOP string = "/dev/loop6"
-	DEFAULT_DM_META_LOOP string = "/dev/loop7"
-	DEFAULT_DM_VOL_SIZE  int    = 2 * 1024 * 1024 * 1024
-	DEFAULT_VOL_FS              = "ext4"
-	DEFAULT_VOL_MKFS            = "mkfs.ext4"
-)
-
 type Storage interface {
 	Type() string
 	RootPath() string
@@ -41,9 +31,9 @@ type Storage interface {
 	Init() error
 	CleanUp() error
 
-	PrepareContainer(ci *LegacyContainer, sharedir string) error
+	PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error)
 	CleanupContainer(id, sharedDir string) error
-	InjectFile(src io.Reader, containerId, target, rootDir string, perm, uid, gid int) error
+	InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error
 	CreateVolume(podId string, spec *apitypes.UserVolume) error
 	RemoveVolume(podId string, record []byte) error
 }
@@ -60,41 +50,6 @@ func StorageFactory(sysinfo *dockertypes.Info, db *daemondb.DaemonDB) (Storage, 
 		return factory(sysinfo, db)
 	}
 	return nil, fmt.Errorf("hyperd can not support docker's backing storage: %s", sysinfo.Driver)
-}
-
-func ProbeExistingVolume(v *apitypes.UserVolume, sharedDir string) (*runv.VolumeDescription, error) {
-	if v == nil || v.Source == "" { //do not create volume in this function, it depends on storage driver.
-		return nil, fmt.Errorf("can not generate volume info from %v", v)
-	}
-
-	var err error = nil
-	vol := &runv.VolumeDescription{
-		Name: v.Name,
-		Source: v.Source,
-		Format: v.Format,
-		Fstype: v.Fstype,
-		Options: &runv.VolumeOption{
-			User: v.Option.User,
-			Monitors: v.Option.Monitors,
-			Keyring: v.Option.Keyring,
-		},
-	}
-
-	if v.Format == "vfs" {
-		vol.Fstype = "dir"
-		vol.Source, err = storage.MountVFSVolume(v.Source, sharedDir)
-		if err != nil {
-			return nil, err
-		}
-		glog.V(1).Infof("dir %s is bound to %s", v.Source, vol.Source)
-	} else if v.Format == "raw" && v.Fstype == "" {
-		vol.Fstype, err = dm.ProbeFsType(v.Source)
-		if err != nil {
-			vol.Fstype = DEFAULT_VOL_FS
-		}
-	}
-
-	return vol, nil
 }
 
 func CleanupExistingVolume(fstype, filepath, sharedDir string) error {
@@ -119,7 +74,7 @@ func DMFactory(sysinfo *dockertypes.Info, db *daemondb.DaemonDB) (Storage, error
 		db: db,
 	}
 
-	driver.VolPoolName = DEFAULT_DM_POOL
+	driver.VolPoolName = storage.DEFAULT_DM_POOL
 
 	for _, pair := range sysinfo.DriverStatus {
 		if pair[0] == "Pool Name" {
@@ -153,10 +108,10 @@ func (dms *DevMapperStorage) Init() error {
 	dmPool := dm.DeviceMapper{
 		Datafile:         filepath.Join(utils.HYPER_ROOT, "lib") + "/data",
 		Metadatafile:     filepath.Join(utils.HYPER_ROOT, "lib") + "/metadata",
-		DataLoopFile:     DEFAULT_DM_DATA_LOOP,
-		MetadataLoopFile: DEFAULT_DM_META_LOOP,
+		DataLoopFile:     storage.DEFAULT_DM_DATA_LOOP,
+		MetadataLoopFile: storage.DEFAULT_DM_META_LOOP,
 		PoolName:         dms.VolPoolName,
-		Size:             DEFAULT_DM_POOL_SIZE,
+		Size:             storage.DEFAULT_DM_POOL_SIZE,
 	}
 	dms.DmPoolData = &dmPool
 	rand.Seed(time.Now().UnixNano())
@@ -169,25 +124,28 @@ func (dms *DevMapperStorage) CleanUp() error {
 	return dm.DMCleanup(dms.DmPoolData)
 }
 
-func (dms *DevMapperStorage) PrepareContainer(ci *LegacyContainer, sharedDir string) error {
-	if err := dm.CreateNewDevice(ci.mountID, dms.DevPrefix, dms.RootPath()); err != nil {
-		return err
+func (dms *DevMapperStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error) {
+	if err := dm.CreateNewDevice(mountId, dms.DevPrefix, dms.RootPath()); err != nil {
+		return nil, err
 	}
-	devFullName, err := dm.MountContainerToSharedDir(ci.mountID, sharedDir, dms.DevPrefix)
+	devFullName, err := dm.MountContainerToSharedDir(mountId, sharedDir, dms.DevPrefix)
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return err
+		return nil, err
 	}
 	fstype, err := dm.ProbeFsType(devFullName)
 	if err != nil {
-		fstype = "ext4"
+		fstype = storage.DEFAULT_VOL_FS
 	}
 
-	ci.rootfs = "/rootfs"
-	ci.fstype = fstype
-	ci.ApiContainer.Image = devFullName
+	vol := &runv.VolumeDescription{
+		Name: devFullName,
+		Source: devFullName,
+		Fstype: fstype,
+		Format: "raw",
+	}
 
-	return nil
+	return vol, nil
 }
 
 func (dms *DevMapperStorage) CleanupContainer(id, sharedDir string) error {
@@ -200,8 +158,8 @@ func (dms *DevMapperStorage) CleanupContainer(id, sharedDir string) error {
 	return dm.UnmapVolume(devFullName)
 }
 
-func (dms *DevMapperStorage) InjectFile(src io.Reader, containerId, target, rootDir string, perm, uid, gid int) error {
-	return dm.InjectFile(src, containerId, dms.DevPrefix, target, rootDir, perm, uid, gid)
+func (dms *DevMapperStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
+	return dm.InjectFile(src, containerId, dms.DevPrefix, target, baseDir, perm, uid, gid)
 }
 
 func (dms *DevMapperStorage) getPersistedId(podId, volName string) (int, error) {
@@ -235,7 +193,7 @@ func (dms *DevMapperStorage) CreateVolume(podId string, spec *apitypes.UserVolum
 		}
 		dev_id_str := strconv.Itoa(dev_id)
 
-		err = dm.CreateVolume(dms.VolPoolName, deviceName, dev_id_str, DEFAULT_VOL_MKFS, DEFAULT_DM_VOL_SIZE, restore)
+		err = dm.CreateVolume(dms.VolPoolName, deviceName, dev_id_str, storage.DEFAULT_VOL_MKFS, storage.DEFAULT_DM_VOL_SIZE, restore)
 		if err != nil && !restore && strings.Contains(err.Error(), "failed: File exists") {
 			glog.V(1).Infof("retry for dev_id #%d creating collision: %v", dev_id, err)
 			continue
@@ -249,12 +207,12 @@ func (dms *DevMapperStorage) CreateVolume(podId string, spec *apitypes.UserVolum
 		break
 	}
 
-	fstype := DEFAULT_VOL_FS
+	fstype := storage.DEFAULT_VOL_FS
 	if !restore {
 		if spec.Fstype == "" {
 			fstype, err = dm.ProbeFsType("/dev/mapper/" + deviceName)
 			if err != nil {
-				fstype = DEFAULT_VOL_FS
+				fstype = storage.DEFAULT_VOL_FS
 			}
 		} else {
 			fstype = spec.Fstype
@@ -310,26 +268,30 @@ func (*AufsStorage) Init() error { return nil }
 
 func (*AufsStorage) CleanUp() error { return nil }
 
-func (a *AufsStorage) PrepareContainer(ci *LegacyContainer, sharedDir string) error {
-	_, err := aufs.MountContainerToSharedDir(ci.mountID, a.RootPath(), sharedDir, "")
+func (a *AufsStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error)  {
+	_, err := aufs.MountContainerToSharedDir(mountId, a.RootPath(), sharedDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return err
+		return nil, err
 	}
 
-	devFullName := "/" + ci.mountID + "/rootfs"
-	ci.ApiContainer.Image = devFullName
-	ci.fstype = "dir"
+	containerPath := "/" + mountId
+	vol := &runv.VolumeDescription{
+		Name: containerPath,
+		Source: containerPath,
+		Fstype: "dir",
+		Format: "vfs",
+	}
 
-	return nil
+	return vol, nil
 }
 
 func (a *AufsStorage) CleanupContainer(id, sharedDir string) error {
 	return aufs.Unmount(filepath.Join(sharedDir, id, "rootfs"))
 }
 
-func (a *AufsStorage) InjectFile(src io.Reader, containerId, target, rootDir string, perm, uid, gid int) error {
-	return storage.FsInjectFile(src, containerId, target, rootDir, perm, uid, gid)
+func (a *AufsStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
+	return storage.FsInjectFile(src, containerId, target, baseDir, perm, uid, gid)
 }
 
 func (a *AufsStorage) CreateVolume(podId string, spec *apitypes.UserVolume) error {
@@ -370,26 +332,30 @@ func (*OverlayFsStorage) Init() error { return nil }
 
 func (*OverlayFsStorage) CleanUp() error { return nil }
 
-func (o *OverlayFsStorage) PrepareContainer(ci *LegacyContainer, sharedDir string) error {
-	_, err := overlay.MountContainerToSharedDir(ci.mountID, o.RootPath(), sharedDir, "")
+func (o *OverlayFsStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error) {
+	_, err := overlay.MountContainerToSharedDir(mountId, o.RootPath(), sharedDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return err
+		return nil, err
 	}
 
-	devFullName := "/" + ci.mountID + "/rootfs"
-	ci.ApiContainer.Image = devFullName
-	ci.fstype = "dir"
+	containerPath := "/" + mountId
+	vol := &runv.VolumeDescription{
+		Name: containerPath,
+		Source: containerPath,
+		Fstype: "dir",
+		Format: "vfs",
+	}
 
-	return nil
+	return vol, nil
 }
 
 func (o *OverlayFsStorage) CleanupContainer(id, sharedDir string) error {
 	return syscall.Unmount(filepath.Join(sharedDir, id, "rootfs"), 0)
 }
 
-func (o *OverlayFsStorage) InjectFile(src io.Reader, containerId, target, rootDir string, perm, uid, gid int) error {
-	return storage.FsInjectFile(src, containerId, target, rootDir, perm, uid, gid)
+func (o *OverlayFsStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
+	return storage.FsInjectFile(src, containerId, target, baseDir, perm, uid, gid)
 }
 
 func (o *OverlayFsStorage) CreateVolume(podId string, spec *apitypes.UserVolume) error {
@@ -430,18 +396,21 @@ func (*VBoxStorage) Init() error { return nil }
 
 func (*VBoxStorage) CleanUp() error { return nil }
 
-func (v *VBoxStorage) PrepareContainer(ci *LegacyContainer, sharedDir string) error {
-	devFullName, err := vbox.MountContainerToSharedDir(ci.mountID, v.RootPath(), "")
+func (v *VBoxStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error) {
+	devFullName, err := vbox.MountContainerToSharedDir(mountId, v.RootPath(), "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return err
+		return nil, err
 	}
 
-	ci.rootfs = "/rootfs"
-	ci.ApiContainer.Image = devFullName
-	ci.fstype = "ext4"
+	vol := &runv.VolumeDescription{
+		Name: devFullName,
+		Source: devFullName,
+		Fstype: "ext4",
+		Format: "vdi",
+	}
 
-	return nil
+	return vol, nil
 }
 
 func (v *VBoxStorage) CleanupContainer(id, sharedDir string) error {

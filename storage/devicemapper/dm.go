@@ -62,14 +62,14 @@ func CreateNewDevice(containerId, devPrefix, rootPath string) error {
 	return nil
 }
 
-func InjectFile(src io.Reader, containerId, devPrefix, target, rootPath string, perm, uid, gid int) error {
+func InjectFile(src io.Reader, containerId, devPrefix, target, basePath string, perm, uid, gid int) error {
 	if containerId == "" {
 		return fmt.Errorf("Please make sure the arguments are not NULL!\n")
 	}
 	permDir := perm | 0111
 	// Define the basic directory, need to get them via the 'info' command
 	var (
-		mntPath = fmt.Sprintf("%s/mnt/", rootPath)
+		mntPath = fmt.Sprintf("%s/mnt/", basePath)
 		devName = fmt.Sprintf("%s-%s", devPrefix, containerId)
 	)
 
