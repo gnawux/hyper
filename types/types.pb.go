@@ -142,6 +142,26 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+type UserContainer_ContainerType int32
+
+const (
+	UserContainer_REGULAR UserContainer_ContainerType = 0
+	UserContainer_SERVICE UserContainer_ContainerType = 99
+)
+
+var UserContainer_ContainerType_name = map[int32]string{
+	0:  "REGULAR",
+	99: "SERVICE",
+}
+var UserContainer_ContainerType_value = map[string]int32{
+	"REGULAR": 0,
+	"SERVICE": 99,
+}
+
+func (x UserContainer_ContainerType) String() string {
+	return proto.EnumName(UserContainer_ContainerType_name, int32(x))
+}
+
 // Types definitions for HyperContainer
 type ContainerPort struct {
 	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1075,20 +1095,22 @@ func (m *UserUser) String() string { return proto.CompactTextString(m) }
 func (*UserUser) ProtoMessage()    {}
 
 type UserContainer struct {
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Image         string                 `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
-	Workdir       string                 `protobuf:"bytes,3,opt,name=workdir,proto3" json:"workdir,omitempty"`
-	RestartPolicy string                 `protobuf:"bytes,4,opt,name=restartPolicy,proto3" json:"restartPolicy,omitempty"`
-	Tty           bool                   `protobuf:"varint,5,opt,name=tty,proto3" json:"tty,omitempty"`
-	Sysctl        map[string]string      `protobuf:"bytes,6,rep,name=sysctl" json:"sysctl,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Envs          []*EnvironmentVar      `protobuf:"bytes,7,rep,name=envs" json:"envs,omitempty"`
-	Command       []string               `protobuf:"bytes,8,rep,name=command" json:"command,omitempty"`
-	Entrypoint    []string               `protobuf:"bytes,9,rep,name=entrypoint" json:"entrypoint,omitempty"`
-	Ports         []*UserContainerPort   `protobuf:"bytes,10,rep,name=ports" json:"ports,omitempty"`
-	Volumes       []*UserVolumeReference `protobuf:"bytes,11,rep,name=volumes" json:"volumes,omitempty"`
-	Files         []*UserFileReference   `protobuf:"bytes,12,rep,name=files" json:"files,omitempty"`
-	User          *UserUser              `protobuf:"bytes,13,opt,name=user" json:"user,omitempty"`
-	Labels        map[string]string      `protobuf:"bytes,14,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Name          string                      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Image         string                      `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
+	Workdir       string                      `protobuf:"bytes,3,opt,name=workdir,proto3" json:"workdir,omitempty"`
+	RestartPolicy string                      `protobuf:"bytes,4,opt,name=restartPolicy,proto3" json:"restartPolicy,omitempty"`
+	Tty           bool                        `protobuf:"varint,5,opt,name=tty,proto3" json:"tty,omitempty"`
+	Sysctl        map[string]string           `protobuf:"bytes,6,rep,name=sysctl" json:"sysctl,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Envs          []*EnvironmentVar           `protobuf:"bytes,7,rep,name=envs" json:"envs,omitempty"`
+	Command       []string                    `protobuf:"bytes,8,rep,name=command" json:"command,omitempty"`
+	Entrypoint    []string                    `protobuf:"bytes,9,rep,name=entrypoint" json:"entrypoint,omitempty"`
+	Ports         []*UserContainerPort        `protobuf:"bytes,10,rep,name=ports" json:"ports,omitempty"`
+	Volumes       []*UserVolumeReference      `protobuf:"bytes,11,rep,name=volumes" json:"volumes,omitempty"`
+	Files         []*UserFileReference        `protobuf:"bytes,12,rep,name=files" json:"files,omitempty"`
+	User          *UserUser                   `protobuf:"bytes,13,opt,name=user" json:"user,omitempty"`
+	Labels        map[string]string           `protobuf:"bytes,14,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Id            string                      `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
+	Type          UserContainer_ContainerType `protobuf:"varint,16,opt,name=type,proto3,enum=types.UserContainer_ContainerType" json:"type,omitempty"`
 }
 
 func (m *UserContainer) Reset()         { *m = UserContainer{} }
@@ -2030,6 +2052,7 @@ func init() {
 	proto.RegisterType((*PodStatsResponse)(nil), "types.PodStatsResponse")
 	proto.RegisterType((*PingRequest)(nil), "types.PingRequest")
 	proto.RegisterType((*PingResponse)(nil), "types.PingResponse")
+	proto.RegisterEnum("types.UserContainer_ContainerType", UserContainer_ContainerType_name, UserContainer_ContainerType_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
