@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -171,19 +172,30 @@ func GetHostIP() string {
 	return ""
 }
 
-func ParseTimeString(str string) (int64, error) {
+func ParseTimeString(str string) (time.Time, error) {
 	t := time.Date(0, 0, 0, 0, 0, 0, 0, time.Local)
 	if str == "" {
-		return t.Unix(), nil
+		return t, nil
 	}
 
 	layout := "2006-01-02T15:04:05Z"
 	t, err := time.Parse(layout, str)
-	if err != nil {
-		return t.Unix(), err
-	}
+	return t, err
+}
 
-	return t.Unix(), nil
+type Initializer struct {
+	once sync.Once
+	job  func()
+}
+
+func NewInitializer(fn func()) *Initializer {
+	return &Initializer{
+		job: fn,
+	}
+}
+
+func (i *Initializer) Do() {
+	i.once.Do(i.job)
 }
 
 func RsplitN(s, sep string, n int) []string {
