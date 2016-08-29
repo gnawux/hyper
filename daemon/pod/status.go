@@ -16,6 +16,7 @@ const (
 	S_POD_NONE = iota // DEFAULT
 	S_POD_CREATING    // vm context exist
 	S_POD_RUNNING     // sandbox inited,
+	S_POD_PAUSING
 	S_POD_STOPPED     // vm stopped, no vm associated
 )
 
@@ -262,7 +263,7 @@ func (ps *PodStatus) GetExec(execId string) *ExecStatus {
 func (p *Pod) IsAlive() bool {
 	p.status.lock.RLock()
 	defer p.status.lock.RUnlock()
-	return (p.status == S_POD_RUNNING || p.status == S_POD_CREATING) && p.sandbox != nil
+	return (p.status.pod == S_POD_RUNNING || p.status.pod == S_POD_CREATING || p.status.pod == S_POD_PAUSING) && p.sandbox != nil
 }
 
 func (p *Pod) SandboxName() string {
@@ -275,6 +276,9 @@ func (p *Pod) SandboxName() string {
 
 func (p *Pod) SandboxStatusString() string {
 	if p.sandbox != nil {
+		if p.status.pod == S_POD_PAUSING {
+			return "paused"
+		}
 		return "associated"
 	}
 	return ""
@@ -299,6 +303,8 @@ func (p *Pod) PodStatusString() string {
 		status = "running"
 	case S_POD_STOPPED:
 		status = "failed"
+	case S_POD_PAUSING:
+		status = "paused"
 	}
 
 	return strings.Join([]string{p.Name, sbn, status}, ":")
@@ -337,6 +343,10 @@ func (p *Pod) ContainerStatusString(id string) string {
 				status = "failed"
 			}
 		}
+	}
+
+	if p.status.pod == S_POD_PAUSING {
+		status = "paused"
 	}
 
 	return strings.Join([]string{id, cdesc.Name, p.Name, status}, ":")
