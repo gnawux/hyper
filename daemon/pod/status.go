@@ -1,6 +1,8 @@
 package pod
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +26,8 @@ const (
 	S_CONTAINER_RUNNING
 	S_CONTAINER_STOPPING
 )
+
+const epocZero = time.Time{}
 
 type ContainerStatus struct {
 	Id         string
@@ -66,6 +70,9 @@ func NewContainerStatus(id string) *ContainerStatus {
 	return &ContainerStatus{
 		Id: id,
 		State: S_CONTAINER_NONE,
+		CreatedAt: epocZero,
+		StartedAt: epocZero,
+		FinishedAt: epocZero,
 	}
 }
 
@@ -250,4 +257,87 @@ func (ps *PodStatus) GetExec(execId string) *ExecStatus {
 	}
 
 	return nil
+}
+
+func (p *Pod) IsAlive() bool {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+	return (p.status == S_POD_RUNNING || p.status == S_POD_CREATING) && p.sandbox != nil
+}
+
+func (p *Pod) SandboxName() string {
+	if p.sandbox != nil {
+		return p.sandbox.Id
+	}
+	return ""
+}
+
+
+func (p *Pod) SandboxStatusString() string {
+	if p.sandbox != nil {
+		return "associated"
+	}
+	return ""
+}
+
+func (p *Pod) PodStatusString() string {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+
+	sbn := ""
+	if p.sandbox != nil {
+		sbn = p.sandbox.Id
+	}
+
+	status := ""
+	switch p.status.pod {
+	case S_POD_NONE:
+		status = "pending"
+	case S_POD_CREATING:
+		status = "pending"
+	case S_POD_RUNNING:
+		status = "running"
+	case S_POD_STOPPED:
+		status = "failed"
+	}
+
+	return strings.Join([]string{p.Name, sbn, status}, ":")
+}
+
+func (p *Pod) ContainerStatusString(id string) string {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+
+	cs, ok := p.status.containers[id]
+	if !ok {
+		err := fmt.Errorf("can not find status of container %s of pod %s", id, p.Name)
+		glog.Error(err)
+		return ""
+	}
+
+	cdesc, ok := p.runtimeConfig.containers[id]
+	if !ok {
+		err := fmt.Errorf("can not find runtime config of container %s of pod %s", id, p.Name)
+		glog.Error(err)
+		return ""
+	}
+
+	status := ""
+	switch cs.CurrentState() {
+	case S_CONTAINER_NONE, S_CONTAINER_CREATING:
+		status = "pending"
+	case S_CONTAINER_RUNNING, S_CONTAINER_STOPPING:
+		status = "running"
+	case S_CONTAINER_CREATED:
+		status = "pending"
+		if !cs.FinishedAt.Equal(epocZero) {
+			if cs.ExitCode == 0 {
+				status = "succeeded"
+			} else {
+				status = "failed"
+			}
+		}
+	}
+
+	return strings.Join([]string{id, cdesc.Name, p.Name, status}, ":")
 }

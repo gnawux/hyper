@@ -1092,13 +1092,18 @@ func (p *Pod) waitVMInit() {
 	r := p.sandbox.WaitInit()
 	glog.Info("sandbox init result: %#v", r)
 	if r.IsSuccess() {
+		p.status.lock.Lock()
 		p.status.pod = S_POD_RUNNING
+		p.status.lock.Unlock()
 	} else {
 		if p.sandbox != nil {
 			p.sandbox.Shutdown()
 			p.sandbox = nil
 		}
+		p.status.lock.Lock()
+		//TODO: daemon.PodStopped(mypod.Id)
 		p.status.pod = S_POD_STOPPED
+		p.status.lock.Unlock()
 	}
 }
 
@@ -1108,6 +1113,8 @@ func (p *Pod) waitVM() {
 	}
 	_, _ = <- p.sandbox.WaitVm(-1)
 	glog.Info("got vm exit event")
+	p.status.lock.Lock()
 	//TODO: daemon.PodStopped(mypod.Id)
 	p.status.pod = S_POD_STOPPED
+	p.status.lock.Unlock()
 }
