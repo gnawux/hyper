@@ -1,213 +1,146 @@
 package daemon
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/golang/glog"
+
+	"github.com/hyperhq/hyperd/daemon/pod"
 	apitypes "github.com/hyperhq/hyperd/types"
+	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
-func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*Pod, error) {
+func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.Pod, error) {
+	//FIXME: why restrict to 1024
+	if daemon.PodList.CountRunning() >= 1024 {
+		return nil, fmt.Errorf("There have already been %d running Pods", 1024)
+	}
 	if podId == "" {
-		podId = fmt.Sprintf("pod-%s", pod.RandStr(10, "alpha"))
+		podId = fmt.Sprintf("pod-%s", utils.RandStr(10, "alpha"))
 	}
 
-	p, err := daemon.createPodInternal(podId, podSpec, false)
+	if podSpec.Id == "" {
+		podSpec = podId
+	}
+
+	if _, ok := daemon.PodList.Get(podSpec.Id); ok {
+		return nil, fmt.Errorf("pod %s already exist", podSpec.Id)
+	}
+
+	if err := podSpec.Validate(); err != nil {
+		return err
+	}
+
+	factory := pod.NewPodFactory(daemon.Storage, daemon, daemon.DefaultLog)
+	sandbox, err := daemon.GetVM("", podSpec.Resource,  hypervisor.HDriver.SupportLazyMode())
 	if err != nil {
 		return nil, err
 	}
 
-	/* Create pod may change the pod spec */
-	spec, err := json.Marshal(p.Spec)
+	p := pod.NewPod(factory, sandbox, podSpec)
+
+	confirm, err := daemon.PodList.PutPod(p)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = daemon.AddPod(p, string(spec)); err != nil {
-		return nil, err
-	}
-
-	return p, nil
-}
-
-func (daemon *Daemon) createPodInternal(podId string, podSpec *apitypes.UserPod, withinLock bool) (*Pod, error) {
-	glog.V(2).Infof("podArgs: %s", podSpec.String())
-
-	pod, err := NewPod(podSpec, podId, daemon)
-	if err != nil {
+		glog.Errorf("%s: failed to add pod: %v", p.Name, err)
 		return nil, err
 	}
 
 	defer func() {
+		close(confirm)
 		if err != nil {
-			pod.Lock()
-			glog.Infof("create pod %s failed, cleanup", podId)
-			pod.Cleanup(daemon)
-			pod.Unlock()
+			//TODO: cleanup
 		}
 	}()
 
-	// Creation
-	if err = pod.DoCreate(daemon); err != nil {
+	err = p.CreatePod()
+	if err != nil {
+		glog.Errorf("failed to create pod %s", podSpec.Id)
 		return nil, err
 	}
 
-	return pod, nil
+	// TODO get persist info and store
+	// confirm pod added
+	confirm <- true
+	return p, nil
 }
 
+//TODO: remove the tty stream in StartPod API, now we could support attach after created
 func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId, vmId string, attach bool) (int, string, error) {
-	var ttys []*hypervisor.TtyIO = []*hypervisor.TtyIO{}
-
-	glog.Infof("pod:%s, vm:%s", podId, vmId)
-
 	p, ok := daemon.PodList.Get(podId)
 	if !ok {
 		return -1, "", fmt.Errorf("The pod(%s) can not be found, please create it first", podId)
 	}
-	var lazy bool = hypervisor.HDriver.SupportLazyMode() && vmId == ""
+
+	var waitTty chan bool
 
 	if attach {
 		glog.V(1).Info("Run pod with tty attached")
-		tty := &hypervisor.TtyIO{
-			Stdin:    stdin,
-			Stdout:   stdout,
-			Callback: make(chan *types.VmResponse, 1),
+
+		ids := p.ContainerIdsOf(apitypes.UserContainer_REGULAR)
+		for _, id := range ids {
+			p.Attach( &hypervisor.TtyIO{
+				Stdin:    stdin,
+				Stdout:   stdout,
+				Callback: make(chan *types.VmResponse, 1),
+			}, id)
+
+			waitTty = make(chan bool, 1)
+			go func(){
+				p.WaitContainerFinish(id)
+				waitTty <- true
+			}()
+			break
 		}
-		if !p.Spec.Containers[0].Tty {
-			tty.Stderr = stdcopy.NewStdWriter(stdout, stdcopy.Stderr)
-			tty.Stdout = stdcopy.NewStdWriter(stdout, stdcopy.Stdout)
-			tty.OutCloser = stdout
-		}
-		ttys = append(ttys, tty)
 	}
 
-	code, cause, err := daemon.StartInternal(p, vmId, nil, lazy, ttys)
-	if err != nil {
-		glog.Error(err.Error())
-		return -1, "", err
+	glog.Infof("pod:%s, vm:%s", podId, vmId)
+
+	success, failed, err := p.StartPod()
+	if glog.V(1) && len(success) > 0 {
+		glog.Info("%s, the following containers was started: %v", p.Name, success)
+	}
+	if len(failed) > 0 {
+		glog.Errorf("%s, the following containers was failed to start: %v", p.Name, failed)
 	}
 
-	if err := p.InitializeFinished(daemon); err != nil {
-		glog.Error(err.Error())
-		return -1, "", err
+
+	if waitTty != nil {
+		<-waitTty
 	}
 
-	if len(ttys) > 0 {
-		ttys[0].WaitForFinish()
+	if err != nil && len(success) == 0 {
+		return -1, err.Error(), err
 	}
 
-	return code, cause, nil
+	return 0, "", err
 }
 
-func (daemon *Daemon) StartInternal(p *Pod, vmId string, config interface{}, lazy bool, streams []*hypervisor.TtyIO) (int, string, error) {
-	// we can only support 1024 Pods
-	if daemon.GetRunningPodNum() >= 1024 {
-		return -1, "", fmt.Errorf("Pod full, the maximum Pod is 1024!")
+func (daemon *Daemon) SetPodLabels(pn string, override bool, labels map[string]string) error {
+
+	p, ok := daemon.PodList.Get(pn)
+	if !ok {
+		return fmt.Errorf("Can not get Pod %s info", pn)
 	}
 
-	if !p.TransitionLock("start") {
-		return -1, "", fmt.Errorf("The pod(%s) is operting by others, please retry later", p.Id)
-	}
-	defer p.TransitionUnlock("start")
-
-	if p.VM != nil {
-		return -1, "", fmt.Errorf("pod %s is already running", p.Id)
-	}
-
-	vmResponse, err := p.Start(daemon, vmId, lazy, streams)
-	if err != nil {
-		return -1, "", err
-	}
-
-	return vmResponse.Code, vmResponse.Cause, nil
-}
-
-// The caller must make sure that the restart policy and the status is right to restart
-func (daemon *Daemon) RestartPod(mypod *hypervisor.PodStatus) error {
-	// Remove the pod
-	// The pod is stopped, the vm is gone
-	pod, ok := daemon.PodList.Get(mypod.Id)
-	if ok {
-		daemon.RemovePodContainer(pod)
-	}
-	daemon.RemovePod(mypod.Id)
-	daemon.DeleteVolumeId(mypod.Id)
-
-	podData, err := daemon.db.GetPod(mypod.Id)
-	if err != nil {
-		return err
-	}
-	var lazy bool = hypervisor.HDriver.SupportLazyMode()
-
-	var podSpec apitypes.UserPod
-	err = json.Unmarshal(podData, &podSpec)
+	err := p.SetLabel(labels, pn)
 	if err != nil {
 		return err
 	}
 
-	// Start the pod
-	pnew, err := daemon.CreatePod(pod.Id, &podSpec)
-	if err != nil {
-		glog.Errorf(err.Error())
-		return err
-	}
-	_, _, err = daemon.StartInternal(pnew, "", nil, lazy, []*hypervisor.TtyIO{})
-	if err != nil {
-		glog.Error(err.Error())
-		return err
-	}
+	// TODO update the persisit info
 
-	return nil
-}
-
-func (daemon *Daemon) SetPodLabels(podId string, override bool, labels map[string]string) error {
-
-	var pod *Pod
-	var ok bool
-	if strings.Contains(podId, "pod-") {
-		pod, ok = daemon.PodList.Get(podId)
-		if !ok {
-			return fmt.Errorf("Can not get Pod info with pod ID(%s)", podId)
-		}
-	} else {
-		pod, ok = daemon.PodList.GetByName(podId)
-		if !ok {
-			return fmt.Errorf("Can not get Pod info with pod name(%s)", podId)
-		}
-	}
-
-	pod.Lock()
-	defer pod.Unlock()
-
-	if pod.Spec.Labels == nil {
-		pod.Spec.Labels = make(map[string]string)
-	}
-
-	for k := range labels {
-		if _, ok := pod.Spec.Labels[k]; ok && !override {
-			return fmt.Errorf("Can't update label %s without override", k)
-		}
-	}
-
-	for k, v := range labels {
-		pod.Spec.Labels[k] = v
-	}
-
-	spec, err := json.Marshal(pod.Spec)
-	if err != nil {
-		return err
-	}
-
-	if err := daemon.db.UpdatePod(pod.Id, spec); err != nil {
-		return err
-	}
+	//spec, err := json.Marshal(p.spec)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//if err := daemon.db.UpdatePod(p.name, spec); err != nil {
+	//	return err
+	//}
 
 	return nil
 }
