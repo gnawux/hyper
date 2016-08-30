@@ -59,6 +59,7 @@ It has these top-level messages:
 	UserVolumeReference
 	UserFileReference
 	UserUser
+	Ulimit
 	UserContainer
 	UserResource
 	UserFile
@@ -1094,6 +1095,16 @@ func (m *UserUser) Reset()         { *m = UserUser{} }
 func (m *UserUser) String() string { return proto.CompactTextString(m) }
 func (*UserUser) ProtoMessage()    {}
 
+type Ulimit struct {
+	Name string `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+	Hard int64  `protobuf:"varint,2,opt,name=Hard,proto3" json:"Hard,omitempty"`
+	Soft int64  `protobuf:"varint,3,opt,name=Soft,proto3" json:"Soft,omitempty"`
+}
+
+func (m *Ulimit) Reset()         { *m = Ulimit{} }
+func (m *Ulimit) String() string { return proto.CompactTextString(m) }
+func (*Ulimit) ProtoMessage()    {}
+
 type UserContainer struct {
 	Name          string                      `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Image         string                      `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
@@ -1111,6 +1122,8 @@ type UserContainer struct {
 	Labels        map[string]string           `protobuf:"bytes,14,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Id            string                      `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
 	Type          UserContainer_ContainerType `protobuf:"varint,16,opt,name=type,proto3,enum=types.UserContainer_ContainerType" json:"type,omitempty"`
+	StopSignal    string                      `protobuf:"bytes,17,opt,name=StopSignal,proto3" json:"StopSignal,omitempty"`
+	Ulimits       []*Ulimit                   `protobuf:"bytes,18,rep,name=ulimits" json:"ulimits,omitempty"`
 }
 
 func (m *UserContainer) Reset()         { *m = UserContainer{} }
@@ -1162,6 +1175,13 @@ func (m *UserContainer) GetUser() *UserUser {
 func (m *UserContainer) GetLabels() map[string]string {
 	if m != nil {
 		return m.Labels
+	}
+	return nil
+}
+
+func (m *UserContainer) GetUlimits() []*Ulimit {
+	if m != nil {
+		return m.Ulimits
 	}
 	return nil
 }
@@ -1986,6 +2006,7 @@ func init() {
 	proto.RegisterType((*UserVolumeReference)(nil), "types.UserVolumeReference")
 	proto.RegisterType((*UserFileReference)(nil), "types.UserFileReference")
 	proto.RegisterType((*UserUser)(nil), "types.UserUser")
+	proto.RegisterType((*Ulimit)(nil), "types.Ulimit")
 	proto.RegisterType((*UserContainer)(nil), "types.UserContainer")
 	proto.RegisterType((*UserResource)(nil), "types.UserResource")
 	proto.RegisterType((*UserFile)(nil), "types.UserFile")

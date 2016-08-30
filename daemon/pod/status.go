@@ -349,5 +349,5 @@ func (p *Pod) ContainerStatusString(id string) string {
 		status = "paused"
 	}
 
-	return strings.Join([]string{id, cdesc.Name, p.Name, status}, ":")
+	return strings.Join([]string{id, strings.TrimLeft(cdesc.Name, "/"), p.Name, status}, ":")
 }

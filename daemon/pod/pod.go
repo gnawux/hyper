@@ -209,7 +209,8 @@ func (p *Pod) AddContainer(spec *apitypes.UserContainer) error {
 	)
 
 	if spec.Name == "" {
-		//TODO: Generate Name
+		err = fmt.Errorf("no container name provided: %#v", spec)
+		return err
 	}
 
 	if spec.Id != "" {
@@ -598,6 +599,25 @@ func (p *Pod) describeContainer(spec *apitypes.UserContainer, cjson *dockertypes
 		Workdir: cjson.Config.WorkingDir,
 		Path:    cjson.Path,
 		Args:    cjson.Args,
+		Rlimits: []*runv.Rlimit{},
+
+		StopSignal: strings.ToUpper(cjson.Config.StopSignal),
+	}
+
+	for _, l := range spec.Ulimits {
+		ltype := strings.ToLower(l.Name)
+		append(container.Rlimits, &runv.Rlimit{
+			Type: ltype,
+			Hard: l.Hard,
+			Soft: l.Soft,
+		})
+	}
+
+	if strings.HasPrefix(container.StopSignal, "SIG") {
+		container.StopSignal = container.StopSignal[len("SIG"):]
+	}
+	if container.StopSignal == "" {
+		container.StopSignal = "TERM"
 	}
 
 	if cjson.Config.User != "" {
