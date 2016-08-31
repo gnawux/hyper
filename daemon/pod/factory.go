@@ -13,7 +13,7 @@ import (
 )
 
 type ContainerEngine interface {
-	ContainerCreate(params *dockertypes.ContainerCreateConfig) (*dockertypes.ContainerCreateResponse, error)
+	ContainerCreate(params dockertypes.ContainerCreateConfig) (dockertypes.ContainerCreateResponse, error)
 
 	ContainerInspect(id string, size bool, version version.Version) (interface{}, error)
 
