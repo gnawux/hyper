@@ -769,10 +769,6 @@ service PublicAPI {
 
     // VMList gets a list of HyperVMs
     rpc VMList(VMListRequest) returns (VMListResponse) {}
-    // VMCreate creates a HyperVM with specified CPU and memory
-    rpc VMCreate(VMCreateRequest) returns (VMCreateResponse) {}
-    // VMRemove deletes a HyperVM by vmID
-    rpc VMRemove(VMRemoveRequest) returns (VMRemoveResponse) {}
 
     // SetPodLabels sets labels of given pod
     rpc SetPodLabels(PodLabelsRequest) returns (PodLabelsResponse) {}

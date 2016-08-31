@@ -452,34 +452,6 @@ func (daemon *Daemon) CmdTtyResize(containerId, execId string, h, w int) error {
 	return daemon.TtyResize(containerId, execId, h, w)
 }
 
-func (daemon *Daemon) CmdCreateVm(cpu, mem int, async bool) (*engine.Env, error) {
-	vm, err := daemon.CreateVm(cpu, mem, async)
-	if err != nil {
-		return nil, err
-	}
-
-	v := &engine.Env{}
-	v.Set("ID", vm.Id)
-	v.SetInt("Code", 0)
-	v.Set("Cause", "")
-
-	return v, nil
-}
-
-func (daemon *Daemon) CmdKillVm(vmId string) (*engine.Env, error) {
-	code, cause, err := daemon.KillVm(vmId)
-	if err != nil {
-		return nil, err
-	}
-
-	v := &engine.Env{}
-	v.Set("ID", vmId)
-	v.SetInt("Code", code)
-	v.Set("Cause", cause)
-
-	return v, nil
-}
-
 func (daemon *Daemon) CmdAddService(podId, data string) (*engine.Env, error) {
 	var srvs []pod.UserService
 	err := json.Unmarshal([]byte(data), &srvs)

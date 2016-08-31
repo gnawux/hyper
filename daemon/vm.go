@@ -6,76 +6,11 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	apitypes "github.com/hyperhq/hyperd/types"
+	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
-
-type VmList struct {
-	vms map[string]*hypervisor.Vm
-	sync.RWMutex
-}
-
-func NewVmList() *VmList {
-	return &VmList{
-		vms: make(map[string]*hypervisor.Vm),
-	}
-}
-
-func (vl *VmList) NewVm(id string, cpu, memory int, lazy bool) *hypervisor.Vm {
-	vmId := id
-
-	vl.Lock()
-	defer vl.Unlock()
-
-	if vmId == "" {
-		for {
-			vmId = fmt.Sprintf("vm-%s", pod.RandStr(10, "alpha"))
-			if _, ok := vl.vms[vmId]; !ok {
-				break
-			}
-		}
-		vl.vms[vmId] = nil
-	}
-	return hypervisor.NewVm(vmId, cpu, memory, lazy)
-}
-
-func (vl *VmList) Add(vm *hypervisor.Vm) {
-	vl.Lock()
-	defer vl.Unlock()
-
-	vl.vms[vm.Id] = vm
-}
-
-func (vl *VmList) Get(id string) (*hypervisor.Vm, bool) {
-	vl.RLock()
-	defer vl.RUnlock()
-
-	vm, ok := vl.vms[id]
-	return vm, ok
-}
-
-func (vl *VmList) Remove(id string) {
-	vl.Lock()
-	defer vl.Unlock()
-
-	delete(vl.vms, id)
-}
-
-type VmOp func(*hypervisor.Vm) error
-
-func (vl *VmList) Foreach(fn VmOp) error {
-	vl.Lock()
-	defer vl.Unlock()
-
-	for _, vm := range vl.vms {
-		if err := fn(vm); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func (daemon *Daemon) CreateVm(cpu, mem int, async bool) (*hypervisor.Vm, error) {
 	vm, err := daemon.StartVm("", cpu, mem, false)
@@ -110,15 +45,13 @@ func (daemon *Daemon) KillVm(vmId string) (int, string, error) {
 		glog.V(3).Infof("Cannot find vm %s", vmId)
 		return 0, "", nil
 	}
-	code, cause, err := vm.Kill()
-	if err == nil {
-		daemon.RemoveVm(vmId)
-	}
+	vm.Kill()
+	daemon.RemoveVm(vmId)
 
-	return code, cause, err
+	return 0, "", nil
 }
 
-func (p *Pod) AssociateVm(daemon *Daemon, vmId string) error {
+func (p *LegacyPod) AssociateVm(daemon *Daemon, vmId string) error {
 	if p.VM != nil && p.VM.Id != vmId {
 		return fmt.Errorf("pod %s already has vm %s, but trying to associate with %s", p.Id, p.VM.Id, vmId)
 	} else if p.VM != nil {
@@ -201,9 +134,6 @@ func (daemon *Daemon) StartVm(vmId string, cpu, mem int, lazy bool) (vm *hypervi
 	} else {
 		vm, err = daemon.Factory.GetVm(cpu, mem)
 	}
-	if err == nil {
-		daemon.VmList.Add(vm)
-	}
 	return vm, err
 }
 
@@ -220,26 +150,4 @@ func (daemon *Daemon) WaitVmStart(vm *hypervisor.Vm) error {
 		return fmt.Errorf("Vbox does not start successfully")
 	}
 	return nil
-}
-
-func (daemon *Daemon) GetVM(vmId string, resource *pod.UserResource, lazy bool) (*hypervisor.Vm, error) {
-	if vmId == "" {
-		return daemon.StartVm("", resource.Vcpu, resource.Memory, lazy)
-	}
-
-	vm, ok := daemon.VmList.Get(vmId)
-	if !ok {
-		return nil, fmt.Errorf("The VM %s doesn't exist", vmId)
-	}
-	/* FIXME: check if any pod is running on this vm? */
-	glog.Infof("find vm:%s", vm.Id)
-	if resource.Vcpu != vm.Cpu {
-		return nil, fmt.Errorf("The new pod's cpu setting is different with the VM's cpu")
-	}
-
-	if resource.Memory != vm.Mem {
-		return nil, fmt.Errorf("The new pod's memory setting is different with the VM's memory")
-	}
-
-	return vm, nil
 }

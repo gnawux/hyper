@@ -2109,10 +2109,6 @@ type PublicAPIClient interface {
 	ImageList(ctx context.Context, in *ImageListRequest, opts ...grpc.CallOption) (*ImageListResponse, error)
 	// VMList gets a list of HyperVMs
 	VMList(ctx context.Context, in *VMListRequest, opts ...grpc.CallOption) (*VMListResponse, error)
-	// VMCreate creates a HyperVM with specified CPU and memory
-	VMCreate(ctx context.Context, in *VMCreateRequest, opts ...grpc.CallOption) (*VMCreateResponse, error)
-	// VMRemove deletes a HyperVM by vmID
-	VMRemove(ctx context.Context, in *VMRemoveRequest, opts ...grpc.CallOption) (*VMRemoveResponse, error)
 	// SetPodLabels sets labels of given pod
 	SetPodLabels(ctx context.Context, in *PodLabelsRequest, opts ...grpc.CallOption) (*PodLabelsResponse, error)
 	// PodStats gets pod stats of a given pod
@@ -2299,24 +2295,6 @@ func (c *publicAPIClient) ImageList(ctx context.Context, in *ImageListRequest, o
 func (c *publicAPIClient) VMList(ctx context.Context, in *VMListRequest, opts ...grpc.CallOption) (*VMListResponse, error) {
 	out := new(VMListResponse)
 	err := grpc.Invoke(ctx, "/types.PublicAPI/VMList", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *publicAPIClient) VMCreate(ctx context.Context, in *VMCreateRequest, opts ...grpc.CallOption) (*VMCreateResponse, error) {
-	out := new(VMCreateResponse)
-	err := grpc.Invoke(ctx, "/types.PublicAPI/VMCreate", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *publicAPIClient) VMRemove(ctx context.Context, in *VMRemoveRequest, opts ...grpc.CallOption) (*VMRemoveResponse, error) {
-	out := new(VMRemoveResponse)
-	err := grpc.Invoke(ctx, "/types.PublicAPI/VMRemove", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2645,10 +2623,6 @@ type PublicAPIServer interface {
 	ImageList(context.Context, *ImageListRequest) (*ImageListResponse, error)
 	// VMList gets a list of HyperVMs
 	VMList(context.Context, *VMListRequest) (*VMListResponse, error)
-	// VMCreate creates a HyperVM with specified CPU and memory
-	VMCreate(context.Context, *VMCreateRequest) (*VMCreateResponse, error)
-	// VMRemove deletes a HyperVM by vmID
-	VMRemove(context.Context, *VMRemoveRequest) (*VMRemoveResponse, error)
 	// SetPodLabels sets labels of given pod
 	SetPodLabels(context.Context, *PodLabelsRequest) (*PodLabelsResponse, error)
 	// PodStats gets pod stats of a given pod
@@ -2862,30 +2836,6 @@ func _PublicAPI_VMList_Handler(srv interface{}, ctx context.Context, dec func(in
 		return nil, err
 	}
 	out, err := srv.(PublicAPIServer).VMList(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _PublicAPI_VMCreate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(VMCreateRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(PublicAPIServer).VMCreate(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _PublicAPI_VMRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(VMRemoveRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(PublicAPIServer).VMRemove(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -3238,14 +3188,6 @@ var _PublicAPI_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VMList",
 			Handler:    _PublicAPI_VMList_Handler,
-		},
-		{
-			MethodName: "VMCreate",
-			Handler:    _PublicAPI_VMCreate_Handler,
-		},
-		{
-			MethodName: "VMRemove",
-			Handler:    _PublicAPI_VMRemove_Handler,
 		},
 		{
 			MethodName: "SetPodLabels",
