@@ -90,7 +90,7 @@ func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId
 
 			waitTty = make(chan bool, 1)
 			go func(){
-				p.WaitContainerFinish(id)
+				p.WaitContainerFinish(id, -1)
 				waitTty <- true
 			}()
 			break
