@@ -20,7 +20,7 @@ func (p *Pod) CreateExec(containerId, cmd string, terminal bool) (string, error)
 		return "", err
 	}
 
-	if !cs.IsAvailable() {
+	if !cs.IsAlive() {
 		err := fmt.Errorf("container %s is not available (%d) for exec %s", containerId, cs.CurrentState(), cmd)
 		glog.Error(err)
 		return "", err

@@ -82,12 +82,6 @@ func (cs *ContainerStatus) CurrentState() int {
 	return cs.State
 }
 
-func (cs *ContainerStatus) IsAvailable() bool {
-	cs.RLock()
-	defer cs.RUnlock()
-	return cs.State == S_CONTAINER_RUNNING || cs.State == S_CONTAINER_CREATED || cs.State == S_CONTAINER_CREATING
-}
-
 func (cs *ContainerStatus) Create() bool {
 	cs.Lock()
 	defer cs.Unlock()
@@ -159,7 +153,7 @@ func (cs *ContainerStatus) Stopped(t time.Time, exitCode int) bool {
 	defer cs.Unlock()
 
 	cs.State = S_CONTAINER_CREATED
-	if cs.State == S_CONTAINER_RUNNING || cs.State == S_CONTAINER_STOPPING  {
+	if cs.State == S_CONTAINER_RUNNING || cs.State == S_CONTAINER_STOPPING {
 		cs.FinishedAt = t
 		cs.ExitCode = exitCode
 		return true
@@ -170,6 +164,27 @@ func (cs *ContainerStatus) Stopped(t time.Time, exitCode int) bool {
 func (cs *ContainerStatus) UnexpectedStopped() bool {
 	glog.Info("container %s stopped without return info", cs.Id)
 	return cs.Stopped(time.Now(), 255)
+}
+
+func (cs *ContainerStatus) IsRunning() bool {
+	cs.RLock()
+	defer cs.RUnlock()
+
+	return cs.State == S_CONTAINER_RUNNING
+}
+
+func (cs *ContainerStatus) IsStopped() bool {
+	cs.RLock()
+	defer cs.RUnlock()
+
+	return cs.State == S_CONTAINER_CREATED
+}
+
+func (cs *ContainerStatus) IsAlive() bool {
+	cs.RLock()
+	defer cs.RUnlock()
+
+	return cs.State == S_CONTAINER_RUNNING || cs.State == S_CONTAINER_CREATED || cs.State == S_CONTAINER_CREATING
 }
 
 func (ps *PodStatus) HasVolume(spec *apitypes.UserVolume) bool {
@@ -263,7 +278,43 @@ func (ps *PodStatus) GetExec(execId string) *ExecStatus {
 func (p *Pod) IsAlive() bool {
 	p.status.lock.RLock()
 	defer p.status.lock.RUnlock()
-	return (p.status.pod == S_POD_RUNNING || p.status.pod == S_POD_CREATING || p.status.pod == S_POD_PAUSING) && p.sandbox != nil
+	return (p.status.pod == S_POD_RUNNING || p.status.pod == S_POD_CREATING) && p.sandbox != nil
+}
+
+func (p *Pod) ContainerIsAlive(id string) bool {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+
+	status, ok := p.status.containers[id]
+	if !ok {
+		return false
+	}
+
+	return status.IsAlive()
+}
+
+func (p *Pod) ContainerIsStopped(id string) bool {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+
+	status, ok := p.status.containers[id]
+	if !ok {
+		return false
+	}
+
+	return status.IsStopped()
+}
+
+func (p *Pod) ContainerIsRunning(id string) bool {
+	p.status.lock.RLock()
+	defer p.status.lock.RUnlock()
+
+	status, ok := p.status.containers[id]
+	if !ok {
+		return false
+	}
+
+	return status.IsRunning()
 }
 
 func (p *Pod) SandboxName() string {
@@ -272,7 +323,6 @@ func (p *Pod) SandboxName() string {
 	}
 	return ""
 }
-
 
 func (p *Pod) SandboxStatusString() string {
 	if p.sandbox != nil {
@@ -348,6 +398,7 @@ func (p *Pod) ContainerStatusString(id string) string {
 	if p.status.pod == S_POD_PAUSING {
 		status = "paused"
 	}
+
 
 	return strings.Join([]string{id, strings.TrimLeft(cdesc.Name, "/"), p.Name, status}, ":")
 }

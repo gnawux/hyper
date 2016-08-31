@@ -278,14 +278,14 @@ func (p *Pod) StartContainer(id string) error {
 		p.startLogging(desc)
 	}
 
-	go p.waitContainer(cs)
+	go p.waitContainer(cs, -1)
 
 	p.sandbox.StartContainer(id)
 
 	return nil
 }
 
-func (p *Pod) WaitContainerFinish(id string) {
+func (p *Pod) WaitContainerFinish(id string, timeout int) {
 	cs, ok := p.status.containers[id]
 	if !ok {
 		err := fmt.Errorf("starting a non-created container %s", id)
@@ -293,7 +293,7 @@ func (p *Pod) WaitContainerFinish(id string) {
 		return
 	}
 
-	p.waitContainer(cs)
+	p.waitContainer(cs, timeout)
 }
 
 func (p *Pod) AddVolume(spec *apitypes.UserVolume) {
@@ -383,20 +383,6 @@ func (p *Pod) ContainerLogger(id string) logger.Logger {
 		return session.log.Driver
 	}
 	return nil
-}
-
-func (p *Pod) ContainerIsAlive(id string) bool {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
-
-	status, ok := p.status.containers[id]
-	if !ok {
-		return false
-	}
-
-	s := status.CurrentState()
-
-	return s == S_CONTAINER_RUNNING || s == S_CONTAINER_CREATED || s == S_CONTAINER_CREATING
 }
 
 func (p *Pod) ContainerHasTty(id string) bool {
@@ -1077,17 +1063,19 @@ func (p *Pod) mountVolume(spec *apitypes.UserVolume) {
 	p.status.VolumeDone(r)
 }
 
-func (p *Pod) waitContainer(cs *ContainerStatus) {
+func (p *Pod) waitContainer(cs *ContainerStatus, timeout int) {
 
 	var firstStop bool
 
-	result := p.sandbox.WaitProcess(true, []string{cs.Id}, -1)
+	result := p.sandbox.WaitProcess(true, []string{cs.Id}, timeout)
 	if result == nil {
 		firstStop = cs.UnexpectedStopped()
 	} else {
 		r, ok := <-result
 		if !ok {
-			firstStop = cs.UnexpectedStopped()
+			if timeout < 0 {
+				firstStop = cs.UnexpectedStopped()
+			}
 		} else {
 			firstStop = cs.Stopped(r.FinishedAt, r.Code)
 		}
