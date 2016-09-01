@@ -739,17 +739,25 @@ func (p *Pod) volumesInContainer(spec *apitypes.UserContainer, cjson *dockertype
 
 	var (
 		existed = make(map[string]bool)
-		refs    = make(map[string]*runv.VolumeReference)
+		refs    = make(map[string][]*runv.VolumeReference)
 	)
 	for _, vol := range spec.Volumes {
 		if vol.Detail != nil {
 			p.AddVolume(vol.Detail)
 		}
 		existed[vol.Path] = true
-		refs[vol.Volume] = &runv.VolumeReference{
-			Path:     vol.Path,
-			Name:     vol.Volume,
-			ReadOnly: vol.ReadOnly,
+		if r, ok := refs[vol.Volume]; !ok {
+			refs[vol.Volume] = []*runv.VolumeReference{&runv.VolumeReference{
+				Path:     vol.Path,
+				Name:     vol.Volume,
+				ReadOnly: vol.ReadOnly,
+			}}
+		} else {
+			refs[vol.Volume] = append(r, &runv.VolumeReference{
+				Path:     vol.Path,
+				Name:     vol.Volume,
+				ReadOnly: vol.ReadOnly,
+			})
 		}
 	}
 
@@ -776,11 +784,11 @@ func (p *Pod) volumesInContainer(spec *apitypes.UserContainer, cjson *dockertype
 
 		p.AddVolume(v)
 		spec.Volumes = append(spec.Volumes, r)
-		refs[n] = &runv.VolumeReference{
+		refs[n] = []*runv.VolumeReference{&runv.VolumeReference{
 			Path:     tgt,
 			Name:     n,
 			ReadOnly: false,
-		}
+		}}
 	}
 
 	return refs
@@ -894,7 +902,7 @@ func (p *Pod) mountContainerAndVolumes(spec *apitypes.UserContainer, desc *runv.
 	//   - before wait volumes, need wait this insert as well
 	// and this func call addVolume for the /etc/hosts vol
 	if hv := p.configEtcHosts(spec); hv != nil {
-		desc.Volumes[hv.Name] = hv
+		desc.Volumes[hv.Name] = []*runv.VolumeReference{hv}
 	}
 
 	if err := p.prepareRootVolume(spec, desc); err != nil {
