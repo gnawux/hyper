@@ -193,7 +193,7 @@ func (pl *PodList) GetByContainerIdOrName(cid string) (*Pod, string, bool) {
 }
 
 func (pl *PodList) CountRunning() int64 {
-	return pl.CountStatus(S_POD_RUNNING) + pl.CountStatus(S_POD_CREATING) + pl.CountStatus(S_POD_PAUSING)
+	return pl.CountStatus(S_POD_RUNNING) + pl.CountStatus(S_POD_CREATING) + pl.CountStatus(S_POD_PAUSED)
 }
 
 func (pl *PodList) CountAll() int64 {

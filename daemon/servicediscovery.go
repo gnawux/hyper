@@ -2,11 +2,9 @@ package daemon
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/servicediscovery"
-	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/pod"
 )
@@ -119,52 +117,4 @@ func (daemon *Daemon) GetServiceContainerInfo(podId string) (*hypervisor.Vm, str
 	}
 
 	return pod.VM, container, nil
-}
-
-func ParseServiceDiscovery(id string, spec *pod.UserPod) error {
-	var containers []pod.UserContainer
-	var serviceType string = "service-discovery"
-	var serviceDir string = path.Join(utils.HYPER_ROOT, "services", id)
-
-	if len(spec.Services) == 0 || spec.Type == serviceType {
-		return nil
-	}
-
-	spec.Type = serviceType
-	serviceContainer := pod.UserContainer{
-		Name:    ServiceDiscoveryContainerName(spec.Name),
-		Image:   servicediscovery.ServiceImage,
-		Command: []string{"haproxy", "-D", "-f", "/usr/local/etc/haproxy/haproxy.cfg", "-p", "/var/run/haproxy.pid"},
-	}
-
-	serviceVolRef := pod.UserVolumeReference{
-		Volume:   "service-volume",
-		Path:     servicediscovery.ServiceVolume,
-		ReadOnly: false,
-	}
-
-	/* PrepareServices will check service volume */
-	serviceVolume := pod.UserVolume{
-		Name:   "service-volume",
-		Source: serviceDir,
-		Driver: "vfs",
-	}
-
-	spec.Volumes = append(spec.Volumes, serviceVolume)
-
-	serviceContainer.Volumes = append(serviceContainer.Volumes, serviceVolRef)
-
-	containers = append(containers, serviceContainer)
-
-	for _, c := range spec.Containers {
-		containers = append(containers, c)
-	}
-
-	spec.Containers = containers
-
-	return nil
-}
-
-func ServiceDiscoveryContainerName(podName string) string {
-	return podName + "-" + utils.RandStr(10, "alpha") + "-service-discovery"
 }

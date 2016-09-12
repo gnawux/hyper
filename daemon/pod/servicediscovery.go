@@ -10,11 +10,13 @@ import (
 
 func ParseServiceDiscovery(id string, spec *apitypes.UserPod) *apitypes.UserContainer {
 	var serviceDir string = path.Join(utils.HYPER_ROOT, "services", id)
+	var serviceType string = "service-discovery"
 
-	if len(spec.Services) == 0 {
+	if len(spec.Services) == 0 || spec.Type == serviceType {
 		return nil
 	}
 
+	spec.Type = serviceType
 	/* PrepareServices will check service volume */
 	serviceVolume := &apitypes.UserVolume{
 		Name:   "service-volume",

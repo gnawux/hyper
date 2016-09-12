@@ -93,8 +93,8 @@ func (pc *PodConfig) ConfigSandbox(spec *apitypes.UserPod) {
 }
 
 func (p *Pod) CurrentState() int {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 	return p.status.pod
 }
 
@@ -163,8 +163,8 @@ func (p *Pod) StartPod() (success []string, failed []string, err error) {
 }
 
 func (p *Pod) ContainerIds() []string {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	result := []string{}
 	for _, c := range p.status.containers {
@@ -175,8 +175,8 @@ func (p *Pod) ContainerIds() []string {
 }
 
 func (p *Pod) ContainerIdsOf(ctype int32) []string {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	result := []string{}
 	for _, c := range p.spec.Containers {
@@ -189,8 +189,8 @@ func (p *Pod) ContainerIdsOf(ctype int32) []string {
 }
 
 func (p *Pod) ContainerNames() []string {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	result := []string{}
 	for _, c := range p.spec.Containers {
@@ -208,8 +208,15 @@ func (p *Pod) AddContainer(spec *apitypes.UserContainer) error {
 		loaded bool
 	)
 
+	if !p.IsAlive() {
+		err = fmt.Errorf("cannot add container %s to a non-active (not creating or running) pod %s", spec.Name, p.Name)
+		glog.Error(err)
+		return err
+	}
+
 	if spec.Name == "" {
 		err = fmt.Errorf("no container name provided: %#v", spec)
+		glog.Error(err)
 		return err
 	}
 
@@ -224,6 +231,7 @@ func (p *Pod) AddContainer(spec *apitypes.UserContainer) error {
 	if cjson == nil {
 		cjson, err = p.createContainer(spec)
 		if err != nil {
+			glog.Error(err)
 			return err
 		}
 		p.status.NewContainer(spec.Id)
@@ -232,19 +240,21 @@ func (p *Pod) AddContainer(spec *apitypes.UserContainer) error {
 
 	desc, err := p.describeContainer(spec, cjson)
 	if err != nil {
+		glog.Error(err)
 		return err
 	}
 	desc.Initialize = !loaded
 
 	if err = p.mountContainerAndVolumes(spec, desc, cjson, loaded); err != nil {
+		glog.Error(err)
 		return err
 	}
 
 	// At last
 	ctime, _ := utils.ParseTimeString(cjson.Created)
 
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	p.runtimeConfig.containers[spec.Id] = desc
 	p.sessions[spec.Id] = &ContainerSession{}
@@ -297,8 +307,8 @@ func (p *Pod) WaitContainerFinish(id string, timeout int) {
 }
 
 func (p *Pod) AddVolume(spec *apitypes.UserVolume) {
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	if p.status.HasVolume(spec) {
 		return
@@ -310,8 +320,8 @@ func (p *Pod) AddVolume(spec *apitypes.UserVolume) {
 }
 
 func (p *Pod) SetLabel(labels map[string]string, update bool) error {
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	if p.spec.Labels == nil {
 		p.spec.Labels = make(map[string]string)
@@ -363,6 +373,13 @@ func (p *Pod) ContainerName2Id(name string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func (p *Pod) ContainerId2Name(id string) string {
+	if c, ok := p.runtimeConfig.containers[id]; ok {
+		return strings.TrimLeft(c.Name, "/")
+	}
+	return ""
 }
 
 func (p *Pod) ContainerLogger(id string) logger.Logger {
@@ -738,14 +755,14 @@ func (p *Pod) configDNS(spec *apitypes.UserContainer) {
 func (p *Pod) volumesInContainer(spec *apitypes.UserContainer, cjson *dockertypes.ContainerJSON) map[string]*runv.VolumeReference {
 
 	var (
-		existed = make(map[string]bool)
+		existed = make(map[string]*apitypes.UserVolume)
 		refs    = make(map[string][]*runv.VolumeReference)
 	)
 	for _, vol := range spec.Volumes {
 		if vol.Detail != nil {
 			p.AddVolume(vol.Detail)
 		}
-		existed[vol.Path] = true
+		existed[vol.Path] = vol.Detail
 		if r, ok := refs[vol.Volume]; !ok {
 			refs[vol.Volume] = []*runv.VolumeReference{&runv.VolumeReference{
 				Path:     vol.Path,
@@ -766,14 +783,18 @@ func (p *Pod) volumesInContainer(spec *apitypes.UserContainer, cjson *dockertype
 	}
 
 	for tgt := range cjson.Config.Volumes {
-		if _, ok := existed[tgt]; ok {
+		if v, ok := existed[tgt]; ok {
+			if v != nil {
+				v.Populate = true
+			}
 			continue
 		}
 
 		n := spec.Id + strings.Replace(tgt, "/", "_", -1)
 		v := apitypes.UserVolume{
-			Name:   n,
-			Source: "",
+			Name:     n,
+			Source:   "",
+			Populate: true,
 		}
 		r := apitypes.UserVolumeReference{
 			Volume:   n,
@@ -1062,8 +1083,8 @@ func (p *Pod) mountVolume(spec *apitypes.UserVolume) {
 		r = p.sandbox.AddVolume(vol)
 	}
 
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	if r.IsSuccess() {
 		p.runtimeConfig.volumes[spec.Name] = vol
@@ -1108,18 +1129,20 @@ func (p *Pod) waitVMInit() {
 	r := p.sandbox.WaitInit()
 	glog.Info("sandbox init result: %#v", r)
 	if r.IsSuccess() {
-		p.status.lock.Lock()
-		p.status.pod = S_POD_RUNNING
-		p.status.lock.Unlock()
+		p.status.sLock.Lock()
+		if p.status.pod == S_POD_CREATING {
+			p.status.pod = S_POD_RUNNING
+		}
+		p.status.sLock.Unlock()
 	} else {
 		if p.sandbox != nil {
 			p.sandbox.Shutdown()
 			p.sandbox = nil
 		}
-		p.status.lock.Lock()
+		p.status.sLock.Lock()
 		//TODO: daemon.PodStopped(mypod.Id)
 		p.status.pod = S_POD_STOPPED
-		p.status.lock.Unlock()
+		p.status.sLock.Unlock()
 	}
 }
 
@@ -1129,8 +1152,6 @@ func (p *Pod) waitVM() {
 	}
 	_, _ = <- p.sandbox.WaitVm(-1)
 	glog.Info("got vm exit event")
-	p.status.lock.Lock()
+	p.status.Stopped()
 	//TODO: daemon.PodStopped(mypod.Id)
-	p.status.pod = S_POD_STOPPED
-	p.status.lock.Unlock()
 }

@@ -88,7 +88,7 @@ func (d *Driver) Diff(id, parent string) (diff archive.Archive, err error) {
 		glog.Errorf("can not create pod %s", podData)
 		return nil, err
 	}
-	defer d.daemon.CleanPod(podId)
+	defer d.daemon.RemovePod(podId)
 
 	// start vm
 	vmId := fmt.Sprintf("%s-%s", d.pullVm, utils.RandStr(10, "alpha"))

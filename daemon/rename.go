@@ -18,6 +18,6 @@ func (daemon *Daemon) ContainerRename(oldname, newname string) error {
 		return err
 	}
 
-	p.Rename(id, newname)
+	p.RenameContainer(id, newname)
 	return nil
 }

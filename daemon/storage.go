@@ -52,13 +52,6 @@ func StorageFactory(sysinfo *dockertypes.Info, db *daemondb.DaemonDB) (Storage, 
 	return nil, fmt.Errorf("hyperd can not support docker's backing storage: %s", sysinfo.Driver)
 }
 
-func CleanupExistingVolume(fstype, filepath, sharedDir string) error {
-	if fstype == "dir" {
-		return storage.UmountVFSVolume(filepath, sharedDir)
-	}
-	return dm.UnmapVolume(filepath)
-}
-
 type DevMapperStorage struct {
 	db          *daemondb.DaemonDB
 	CtnPoolName string

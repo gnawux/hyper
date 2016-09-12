@@ -16,8 +16,10 @@ const (
 	S_POD_NONE = iota // DEFAULT
 	S_POD_CREATING    // vm context exist
 	S_POD_RUNNING     // sandbox inited,
-	S_POD_PAUSING
+	S_POD_PAUSED
 	S_POD_STOPPED     // vm stopped, no vm associated
+	S_POD_STOPPING    // user initiates a stop/remove pod command
+	S_POD_ERROR       // failed to stop/remove...
 )
 
 const (
@@ -56,14 +58,15 @@ type PodStatus struct {
 	execs       map[string]*ExecStatus
 
 	subscribers map[string][]chan<- runv.Result
-	lock        *sync.RWMutex
+	sLock       *sync.RWMutex
+	opLock      *sync.Mutex
 }
 
 func NewPodStatus() *PodStatus {
 	return &PodStatus{
 		containers: make(map[string]*ContainerStatus),
 		volumes:    make(map[string]bool),
-		lock:       &sync.RWMutex{},
+		sLock:       &sync.RWMutex{},
 	}
 }
 
@@ -231,8 +234,8 @@ func (ps *PodStatus) VolumeDone(result runv.Result) {
 }
 
 func (ps *PodStatus) NewContainer(id string) bool {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
 
 	if _, ok := ps.containers[id]; ok {
 		return false
@@ -275,15 +278,78 @@ func (ps *PodStatus) GetExec(execId string) *ExecStatus {
 	return nil
 }
 
+func (ps *PodStatus) Stop() bool {
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
+
+	if ps.pod != S_POD_RUNNING && ps.pod != S_POD_CREATING {
+		glog.Errorf("only alived pod could be stopped, current %d", ps.pod)
+		return false
+	}
+	ps.pod = S_POD_STOPPING
+	return true
+}
+
+func (ps *PodStatus) Pause() bool {
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
+
+	if ps.pod != S_POD_RUNNING {
+		glog.Errorf("only running pod could be pause, current %d", ps.pod)
+		return false
+	}
+	ps.pod = S_POD_PAUSED
+	return true
+}
+
+func (ps *PodStatus) Unpause() bool {
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
+
+	if ps.pod != S_POD_PAUSED {
+		glog.Errorf("only paused pod could be unpause, current %d", ps.pod)
+		return false
+	}
+	ps.pod = S_POD_RUNNING
+	return true
+}
+
+func (ps *PodStatus) Stopped() bool {
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
+
+	if ps.pod == S_POD_STOPPED {
+		glog.V(1).Info("stop a pod already stopped")
+		return false
+	}
+
+	ps.pod = S_POD_STOPPED
+	return true
+}
+
+func (ps *PodStatus) ToError(from int) bool {
+	ps.sLock.Lock()
+	defer ps.sLock.Unlock()
+
+	if ps.pod == from {
+		glog.Warningf("from %d to Error", from)
+		ps.pod = S_POD_ERROR
+		return true
+	}
+
+	glog.Warningf("not in %d, do not change to Error, current: %d", from, ps.pod)
+	return false
+}
+
 func (p *Pod) IsAlive() bool {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 	return (p.status.pod == S_POD_RUNNING || p.status.pod == S_POD_CREATING) && p.sandbox != nil
 }
 
 func (p *Pod) ContainerIsAlive(id string) bool {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	status, ok := p.status.containers[id]
 	if !ok {
@@ -294,8 +360,8 @@ func (p *Pod) ContainerIsAlive(id string) bool {
 }
 
 func (p *Pod) ContainerIsStopped(id string) bool {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	status, ok := p.status.containers[id]
 	if !ok {
@@ -306,8 +372,8 @@ func (p *Pod) ContainerIsStopped(id string) bool {
 }
 
 func (p *Pod) ContainerIsRunning(id string) bool {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	status, ok := p.status.containers[id]
 	if !ok {
@@ -325,8 +391,10 @@ func (p *Pod) SandboxName() string {
 }
 
 func (p *Pod) SandboxStatusString() string {
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 	if p.sandbox != nil {
-		if p.status.pod == S_POD_PAUSING {
+		if p.status.pod == S_POD_PAUSED {
 			return "paused"
 		}
 		return "associated"
@@ -335,8 +403,8 @@ func (p *Pod) SandboxStatusString() string {
 }
 
 func (p *Pod) PodStatusString() string {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	sbn := ""
 	if p.sandbox != nil {
@@ -353,16 +421,20 @@ func (p *Pod) PodStatusString() string {
 		status = "running"
 	case S_POD_STOPPED:
 		status = "failed"
-	case S_POD_PAUSING:
+	case S_POD_PAUSED:
 		status = "paused"
+	case S_POD_STOPPING:
+		status = "stopping"
+	case S_POD_ERROR:
+		status = "stopping"
 	}
 
 	return strings.Join([]string{p.Name, sbn, status}, ":")
 }
 
 func (p *Pod) ContainerStatusString(id string) string {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	cs, ok := p.status.containers[id]
 	if !ok {
@@ -395,7 +467,7 @@ func (p *Pod) ContainerStatusString(id string) string {
 		}
 	}
 
-	if p.status.pod == S_POD_PAUSING {
+	if p.status.pod == S_POD_PAUSED {
 		status = "paused"
 	}
 

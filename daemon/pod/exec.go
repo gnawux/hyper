@@ -28,16 +28,16 @@ func (p *Pod) CreateExec(containerId, cmd string, terminal bool) (string, error)
 
 	execId := fmt.Sprintf("exec-%s", utils.RandStr(10, "alpha"))
 
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	p.status.AddExec(containerId, execId, cmd, terminal)
 	return execId, nil
 }
 
 func (p *Pod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId, execId string) error {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	es := p.status.GetExec(execId)
 	if es == nil {
@@ -72,8 +72,8 @@ func (p *Pod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId,
 			return
 		}
 
-		p.status.lock.RLock()
-		defer p.status.lock.RUnlock()
+		p.status.sLock.RLock()
+		defer p.status.sLock.RUnlock()
 
 		glog.V(1).Infof("exec %s of container %s terminated at %v with code %d", execId, containerId, r.FinishedAt, r.Code)
 		p.status.SetExecStatus(execId, r.Code)
@@ -83,8 +83,8 @@ func (p *Pod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId,
 }
 
 func (p *Pod) GetExecExitCode(containerId, execId string) (uint8, error) {
-	p.status.lock.RLock()
-	defer p.status.lock.RUnlock()
+	p.status.sLock.RLock()
+	defer p.status.sLock.RUnlock()
 
 	es := p.status.GetExec(execId)
 	if es == nil {
@@ -97,8 +97,8 @@ func (p *Pod) GetExecExitCode(containerId, execId string) (uint8, error) {
 }
 
 func (p *Pod) DeleteExec(containerId, execId string) {
-	p.status.lock.Lock()
-	defer p.status.lock.Unlock()
+	p.status.sLock.Lock()
+	defer p.status.sLock.Unlock()
 
 	p.status.DeleteExec(execId)
 }

@@ -25,7 +25,7 @@ func (daemon *Daemon) StopPod(podId string) (int, string, error) {
 	return 0, "", nil
 }
 
-func (daemon *Daemon) StopContainer(container string) error {
+func (daemon *Daemon) StopContainer(container string, graceful int) error {
 	p, id, ok := daemon.PodList.GetByContainerIdOrName(container)
 	if !ok {
 		return fmt.Errorf("can not found container %s", container)
@@ -36,5 +36,5 @@ func (daemon *Daemon) StopContainer(container string) error {
 		return nil
 	}
 
-	return p.StopContainer(id)
+	return p.StopContainer(id, graceful)
 }

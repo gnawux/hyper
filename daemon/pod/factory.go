@@ -24,6 +24,7 @@ type PodStorage interface {
 	Type() string
 
 	PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error)
+	CleanupContainer(id, sharedDir string) error
 	InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error
 	CreateVolume(podId string, spec *apitypes.UserVolume) error
 }

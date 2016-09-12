@@ -352,7 +352,7 @@ func (d *Driver) VmMountLayer(id string) error {
 		glog.Errorf("can not create pod %s", podstring)
 		return err
 	}
-	defer daemon.CleanPod(podId)
+	defer daemon.RemovePod(podId)
 
 	vm, err := d.daemon.StartVm(vmId, 1, 64, false)
 	if err != nil {

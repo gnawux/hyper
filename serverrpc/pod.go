@@ -98,7 +98,7 @@ func (s *ServerRPC) PodRemove(ctx context.Context, req *types.PodRemoveRequest) 
 		return nil, fmt.Errorf("PodID is required for PodRemove")
 	}
 
-	code, cause, err := s.daemon.CleanPod(req.PodID)
+	code, cause, err := s.daemon.RemovePod(req.PodID)
 	if err != nil {
 		glog.Errorf("CleanPod %s failed: %v", req.PodID, err)
 		return nil, err

@@ -36,7 +36,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.P
 	}
 
 	factory := pod.NewPodFactory(daemon.Storage, daemon, daemon.DefaultLog)
-	sandbox, err := daemon.GetVM("", podSpec.Resource,  hypervisor.HDriver.SupportLazyMode())
+	sandbox, err := daemon.StartVm("", podSpec.Resource.Vcpu, podSpec.Resource.Memory, hypervisor.HDriver.SupportLazyMode())
 	if err != nil {
 		return nil, err
 	}

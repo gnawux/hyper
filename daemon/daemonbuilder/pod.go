@@ -409,18 +409,18 @@ func (d Docker) ContainerRm(name string, config *types.ContainerRmConfig) error 
 	}
 
 	glog.Infof("ContainerRm pod id %s", podId)
-	d.Daemon.CleanPod(podId)
+	d.Daemon.RemovePod(podId)
 
 	return nil
 }
 
 func (d Docker) Cleanup() {
 	for _, podId := range d.hyper.CopyPods {
-		d.Daemon.CleanPod(podId)
+		d.Daemon.RemovePod(podId)
 	}
 
 	for _, podId := range d.hyper.BasicPods {
-		d.Daemon.CleanPod(podId)
+		d.Daemon.RemovePod(podId)
 	}
 
 	close(d.hyper.Ready)

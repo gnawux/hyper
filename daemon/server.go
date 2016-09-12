@@ -187,7 +187,7 @@ func (daemon *Daemon) CmdKillContainer(name string, sig int64) (*engine.Env, err
 }
 
 func (daemon *Daemon) CmdStopContainer(name string) (*engine.Env, error) {
-	err := daemon.StopContainer(name)
+	err := daemon.StopContainer(name, 5)
 	if err != nil {
 		glog.Errorf("fail to stop container %s: %v", name, err)
 		return nil, err
@@ -344,7 +344,7 @@ func (daemon *Daemon) CmdContainerRename(oldname, newname string) (*engine.Env, 
 }
 
 func (daemon *Daemon) CmdCleanPod(podId string) (*engine.Env, error) {
-	code, cause, err := daemon.CleanPod(podId)
+	code, cause, err := daemon.RemovePod(podId)
 	if err != nil {
 		return nil, err
 	}
