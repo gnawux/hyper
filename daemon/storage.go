@@ -222,9 +222,26 @@ func (dms *DevMapperStorage) CreateVolume(podId string, spec *apitypes.UserVolum
 }
 
 func (dms *DevMapperStorage) RemoveVolume(podId string, record []byte) error {
-	fields := strings.Split(string(record), ":")
+	fields := strings.SplitN(string(record), ":", 2)
+	if len(fields) == 1 {
+		record, err := dms.db.GetPodVolume(podId, fields[0])
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+		fields = strings.SplitN(string(record), ":", 2)
+		if len(fields) == 1 {
+			err = fmt.Errorf("cannot get valid volume %s/%s from db", podId, record)
+			glog.Error(err)
+			return err
+		}
+	}
 	dev_id, _ := strconv.Atoi(fields[1])
 	if err := dm.DeleteVolume(dms.DmPoolData, dev_id); err != nil {
+		glog.Error(err.Error())
+		return err
+	}
+	if err := dms.db.DeletePodVolume(podId, fields[0]); err != nil {
 		glog.Error(err.Error())
 		return err
 	}
@@ -284,6 +301,13 @@ func (a *AufsStorage) CleanupContainer(id, sharedDir string) error {
 }
 
 func (a *AufsStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
+	_, err := aufs.MountContainerToSharedDir(containerId, a.RootPath(), baseDir, "")
+	if err != nil {
+		glog.Error("got error when mount container to share dir ", err.Error())
+		return nil, err
+	}
+	defer aufs.Unmount(filepath.Join(baseDir, containerId, "rootfs"))
+
 	return storage.FsInjectFile(src, containerId, target, baseDir, perm, uid, gid)
 }
 
@@ -348,6 +372,13 @@ func (o *OverlayFsStorage) CleanupContainer(id, sharedDir string) error {
 }
 
 func (o *OverlayFsStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
+	_, err := overlay.MountContainerToSharedDir(containerId, o.RootPath(), baseDir, "")
+	if err != nil {
+		glog.Error("got error when mount container to share dir ", err.Error())
+		return nil, err
+	}
+	defer syscall.Unmount(filepath.Join(baseDir, containerId, "rootfs"), 0)
+
 	return storage.FsInjectFile(src, containerId, target, baseDir, perm, uid, gid)
 }
 

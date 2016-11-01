@@ -206,7 +206,7 @@ func GenerateServiceConfig(services []*apitypes.UserService) []byte {
 	return data
 }
 
-func checkHaproxyConfig(services []apitypes.UserService, config string) error {
+func checkHaproxyConfig(services []*apitypes.UserService, config string) error {
 	var err error
 	glog.V(1).Infof("haproxy config: %s\n", config)
 	if _, err = os.Stat(config); err != nil && os.IsNotExist(err) {
@@ -216,7 +216,7 @@ func checkHaproxyConfig(services []apitypes.UserService, config string) error {
 	return err
 }
 
-func PrepareServices(services []apitypes.UserService, podId string) error {
+func PrepareServices(services []*apitypes.UserService, podId string) error {
 	var serviceDir string = path.Join(utils.HYPER_ROOT, "services", podId)
 	var config string = path.Join(serviceDir, ServiceConfig)
 	var err error

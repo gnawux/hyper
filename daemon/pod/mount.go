@@ -6,8 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/golang/glog"
-
+	"github.com/hyperhq/hyperd/lib/hlog"
 	"github.com/hyperhq/hyperd/storage"
 	dm "github.com/hyperhq/hyperd/storage/devicemapper"
 	apitypes "github.com/hyperhq/hyperd/types"
@@ -53,14 +52,24 @@ func ProbeExistingVolume(v *apitypes.UserVolume, sharedDir string) (*runv.Volume
 		if err != nil {
 			return nil, err
 		}
-		glog.V(1).Infof("dir %s is bound to %s", v.Source, vol.Source)
+		hlog.Log(DEBUG, "dir %s is bound to %s", v.Source, vol.Source)
 	} else if v.Format == "raw" && v.Fstype == "" {
 		vol.Fstype, err = dm.ProbeFsType(v.Source)
 		if err != nil {
 			vol.Fstype = storage.DEFAULT_VOL_FS
+			err = nil
 		}
 	}
 
 	return vol, nil
 }
 
+func UmountExistingVolume(fstype, target, sharedDir string) error {
+	if fstype == "dir" {
+		return storage.UmountVFSVolume(target, sharedDir)
+	}
+	if ! path.IsAbs(target) {
+		return nil
+	}
+	return dm.UnmapVolume(target)
+}

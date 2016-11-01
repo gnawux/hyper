@@ -10,10 +10,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
-	"sync"
+	"syscall"
 	"time"
+
+	"github.com/docker/docker/pkg/signal"
 )
 
 var (
@@ -183,15 +186,19 @@ func ParseTimeString(str string) (time.Time, error) {
 	return t, err
 }
 
-type Initializer struct {
-	once sync.Once
-	job  func()
+func Timeout(second int) <-chan time.Time {
+	if second < 0 {
+		return make(chan time.Time)
+	}
+	return time.After(time.Duration(second) * time.Second)
 }
 
-func NewInitializer(fn func()) *Initializer {
-	return &Initializer{
-		job: fn,
+func StringToSignal(s string) syscall.Signal {
+	sig, ok := signal.SignalMap[s]
+	if !ok {
+		sig = syscall.SIGTERM
 	}
+	return sig
 }
 
 func (i *Initializer) Do() {
@@ -210,3 +217,11 @@ func RsplitN(s, sep string, n int) []string {
 	}
 	return ret
 }
+
+const DockerRestrictedNameChars = `[a-zA-Z0-9][a-zA-Z0-9_.-]`
+
+// RestrictedNamePattern is a regular expression to validate names against the collection of restricted characters.
+var DockerRestrictedNamePattern = regexp.MustCompile(`^/?` + DockerRestrictedNameChars + `+$`)
+
+// RestrictedVolumeNamePattern is a regular expression to validate volume names against the collection of restricted characters.
+var RestrictedVolumeNamePattern = regexp.MustCompile(`^` + DockerRestrictedNameChars + `+$`)

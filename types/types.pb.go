@@ -69,6 +69,7 @@ It has these top-level messages:
 	UserServiceBackend
 	UserService
 	PodLogConfig
+	PortMapping
 	PortmappingWhiteList
 	UserPod
 	PodCreateRequest
@@ -1241,6 +1242,7 @@ type UserInterface struct {
 	Ifname  string `protobuf:"bytes,3,opt,name=ifname,proto3" json:"ifname,omitempty"`
 	Mac     string `protobuf:"bytes,4,opt,name=mac,proto3" json:"mac,omitempty"`
 	Gateway string `protobuf:"bytes,5,opt,name=gateway,proto3" json:"gateway,omitempty"`
+	Tap     string `protobuf:"bytes,6,opt,name=tap,proto3" json:"tap,omitempty"`
 }
 
 func (m *UserInterface) Reset()         { *m = UserInterface{} }
@@ -1290,6 +1292,16 @@ func (m *PodLogConfig) GetConfig() map[string]string {
 	return nil
 }
 
+type PortMapping struct {
+	ContainerPort string `protobuf:"bytes,1,opt,name=containerPort,proto3" json:"containerPort,omitempty"`
+	HostPort      string `protobuf:"bytes,2,opt,name=hostPort,proto3" json:"hostPort,omitempty"`
+	Protocol      string `protobuf:"bytes,3,opt,name=protocol,proto3" json:"protocol,omitempty"`
+}
+
+func (m *PortMapping) Reset()         { *m = PortMapping{} }
+func (m *PortMapping) String() string { return proto.CompactTextString(m) }
+func (*PortMapping) ProtoMessage()    {}
+
 type PortmappingWhiteList struct {
 	// allowed internal networks in CIDR format for portmapping
 	// Those networks could visit all container ports if portmapping is enabled
@@ -1320,6 +1332,7 @@ type UserPod struct {
 	Interfaces            []*UserInterface      `protobuf:"bytes,13,rep,name=interfaces" json:"interfaces,omitempty"`
 	Services              []*UserService        `protobuf:"bytes,14,rep,name=services" json:"services,omitempty"`
 	PortmappingWhiteLists *PortmappingWhiteList `protobuf:"bytes,15,opt,name=portmappingWhiteLists" json:"portmappingWhiteLists,omitempty"`
+	Portmappings          []*PortMapping        `protobuf:"bytes,16,rep,name=portmappings" json:"portmappings,omitempty"`
 }
 
 func (m *UserPod) Reset()         { *m = UserPod{} }
@@ -1385,6 +1398,13 @@ func (m *UserPod) GetServices() []*UserService {
 func (m *UserPod) GetPortmappingWhiteLists() *PortmappingWhiteList {
 	if m != nil {
 		return m.PortmappingWhiteLists
+	}
+	return nil
+}
+
+func (m *UserPod) GetPortmappings() []*PortMapping {
+	if m != nil {
+		return m.Portmappings
 	}
 	return nil
 }
@@ -2016,6 +2036,7 @@ func init() {
 	proto.RegisterType((*UserServiceBackend)(nil), "types.UserServiceBackend")
 	proto.RegisterType((*UserService)(nil), "types.UserService")
 	proto.RegisterType((*PodLogConfig)(nil), "types.PodLogConfig")
+	proto.RegisterType((*PortMapping)(nil), "types.PortMapping")
 	proto.RegisterType((*PortmappingWhiteList)(nil), "types.PortmappingWhiteList")
 	proto.RegisterType((*UserPod)(nil), "types.UserPod")
 	proto.RegisterType((*PodCreateRequest)(nil), "types.PodCreateRequest")

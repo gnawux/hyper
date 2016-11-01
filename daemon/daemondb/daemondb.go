@@ -69,8 +69,16 @@ func (d *DaemonDB) UpdatePodVolume(podId, volname string, data []byte) error {
 	return d.Update(keyVolume(podId, volname), data)
 }
 
+func (d *DaemonDB) GetPodVolume(podId, volname string) ([]byte, error) {
+	return d.db.Get(keyVolume(podId, volname), nil)
+}
+
 func (d *DaemonDB) ListPodVolumes(podId string) ([][]byte, error) {
 	return d.PrefixList(prefixVolume(podId), nil)
+}
+
+func (d *DaemonDB) DeletePodVolume(podId, volName string) error {
+	return d.db.Delete(keyVolume(podId, volName), nil)
 }
 
 func (d *DaemonDB) DeletePodVolumes(podId string) error {

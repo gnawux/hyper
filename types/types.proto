@@ -441,6 +441,7 @@ message UserInterface {
   string ifname = 3;
   string mac    = 4;
   string gateway  = 5;
+  string tap    = 6;
 }
 
 message UserServiceBackend {
@@ -458,6 +459,12 @@ message UserService {
 message PodLogConfig {
   string type                 = 1;
   map<string, string> config  = 2;
+}
+
+message PortMapping {
+  string containerPort = 1;
+  string hostPort      = 2;
+  string protocol      = 3;
 }
 
 message PortmappingWhiteList {
@@ -486,6 +493,7 @@ message UserPod {
   repeated UserInterface interfaces          = 13;
   repeated UserService services              = 14;
   PortmappingWhiteList portmappingWhiteLists = 15;
+  repeated PortMapping portmappings          = 16;
 }
 
 message PodCreateRequest {

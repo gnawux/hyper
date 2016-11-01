@@ -7,7 +7,7 @@ import (
 )
 
 type PodList struct {
-	pods       map[string]*Pod
+	pods       map[string]*XPod
 	containers map[string]string
 	containerNames map[string]string
 	mu         *sync.RWMutex
@@ -15,14 +15,14 @@ type PodList struct {
 
 func NewPodList() *PodList {
 	return &PodList{
-		pods:       make(map[string]*Pod),
+		pods:       make(map[string]*XPod),
 		containers: make(map[string]string),
 		containerNames: make(map[string]string),
 		mu:         &sync.RWMutex{},
 	}
 }
 
-func (pl *PodList) Get(id string) (*Pod, bool) {
+func (pl *PodList) Get(id string) (*XPod, bool) {
 	pl.mu.RLock()
 	defer pl.mu.RUnlock()
 
@@ -30,7 +30,7 @@ func (pl *PodList) Get(id string) (*Pod, bool) {
 	return p, ok
 }
 
-func (pl *PodList) PutContainerID(id, pod string) error {
+func (pl *PodList) ReserveContainerID(id, pod string) error {
 	if pn, ok := pl.containers[id]; ok && pn !=pod {
 		return fmt.Errorf("the container id %s has already taken by pod %s", id, pn)
 	}
@@ -38,14 +38,14 @@ func (pl *PodList) PutContainerID(id, pod string) error {
 	return nil
 }
 
-func (pl *PodList) PutContainer(id, name, pod string) (chan<- bool, error) {
+func (pl *PodList) ReserveContainer(id, name, pod string) error {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 	if _, ok := pl.pods[pod]; !ok {
-		return nil, fmt.Errorf("pod %s not exist for adding container %s(%s)", pod, name, id)
+		return fmt.Errorf("pod %s not exist for adding container %s(%s)", pod, name, id)
 	}
 	if pn, ok := pl.containerNames[name]; ok && pn != pod {
-		return nil,fmt.Errorf("container name %s has already taken by pod %s", name, pn)
+		return fmt.Errorf("container name %s has already taken by pod %s", name, pn)
 	}
 	if id != "" {
 		if pn, ok := pl.containers[id]; ok && pn !=pod {
@@ -54,88 +54,38 @@ func (pl *PodList) PutContainer(id, name, pod string) (chan<- bool, error) {
 		pl.containers[id] = pod
 	}
 	pl.containerNames[name] = pod
-
-	confirm := make(chan bool, 1)
-	go func() {
-		yes, ok := <-confirm
-		if yes && ok {
-			return
-		}
-		// if not confirmed, release the names
-		pl.mu.Lock()
-		defer pl.mu.Unlock()
-		delete(pl.containerNames, name)
-		delete(pl.containers, id)
-	}()
-	return confirm, nil
+	return nil
 }
 
-func (pl *PodList) PutPod(p *Pod) (chan<- bool, error) {
+func (pl *PodList) ReservePod(p *XPod) error {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
-
-	names := []string{}
-	ids := []string{}
 
 	name := p.Name
 	// check availability
-	if _, ok := pl.pods[name]; ok {
-		return nil, fmt.Errorf("pod name %s has already in use", p.Name)
+	if pe, ok := pl.pods[name]; ok && pe != p {
+		return fmt.Errorf("pod name %s has already in use", p.Name)
 	}
 
-	for _, c := range p.spec.Containers {
-		if pn, ok := pl.containerNames[c.Name]; ok && pn != p.Name {
-			return nil, fmt.Errorf("container name %s has already taken by pod %s", c.Name, pn)
-		}
-		if c.Id != "" {
-			if pn, ok :=pl.containers[c.Id]; ok && pn != p.Name {
-				return nil, fmt.Errorf("the container id %s has already taken by pod %s", c.Id, pn)
-			}
-			ids = append(ids, c.Id)
-		}
-		names = append(names, c.Name)
-	}
-
-	for _, n := range names {
-		pl.containerNames[n] = p.Name
-	}
-	for _, i := range ids {
-		pl.containers[i] = p.Name
-	}
-
-	confirm := make(chan bool, 1)
-	go func() {
-		yes, ok := <-confirm
-		if yes && ok {
-			return
-		}
-		// if not confirmed, release the names
-		pl.mu.Lock()
-		defer pl.mu.Unlock()
-		for _, n := range names {
-			delete(pl.containerNames, n)
-		}
-		for _, i := range ids {
-			delete(pl.containers, i)
-		}
-		delete(pl.pods, name)
-	}()
-	return confirm, nil
+	pl.pods[name] = p
+	return nil
 }
 
-func (pl *PodList) Delete(id string) {
+func (pl *PodList) Release(id string) {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 	if p, ok := pl.pods[id]; ok {
-		for _, c := range p.spec.Containers {
-			delete(pl.containers, c.Id)
-			delete(pl.containerNames, c.Name)
+		for _, c := range p.ContainerIds() {
+			delete(pl.containers, c)
+		}
+		for _, c := range p.ContainerNames() {
+			delete(pl.containerNames, c)
 		}
 	}
 	delete(pl.pods, id)
 }
 
-func (pl *PodList) DeleteContainer(id, name string) {
+func (pl *PodList) ReleaseContainer(id, name string) {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 
@@ -143,7 +93,7 @@ func (pl *PodList) DeleteContainer(id, name string) {
 	delete(pl.containerNames, name)
 }
 
-func (pl *PodList) GetByContainerId(cid string) (*Pod, bool) {
+func (pl *PodList) GetByContainerId(cid string) (*XPod, bool) {
 	pl.mu.RLock()
 	defer pl.mu.RUnlock()
 
@@ -154,7 +104,7 @@ func (pl *PodList) GetByContainerId(cid string) (*Pod, bool) {
 	return nil, false
 }
 
-func (pl *PodList) GetByContainerIdOrName(cid string) (*Pod, string, bool) {
+func (pl *PodList) GetByContainerIdOrName(cid string) (*XPod, string, bool) {
 	pl.mu.RLock()
 	defer pl.mu.RUnlock()
 
@@ -193,14 +143,14 @@ func (pl *PodList) GetByContainerIdOrName(cid string) (*Pod, string, bool) {
 }
 
 func (pl *PodList) CountRunning() int64 {
-	return pl.CountStatus(S_POD_RUNNING) + pl.CountStatus(S_POD_CREATING) + pl.CountStatus(S_POD_PAUSED)
+	return pl.CountStatus(S_POD_RUNNING) + pl.CountStatus(S_POD_STARTING) + pl.CountStatus(S_POD_PAUSED)
 }
 
 func (pl *PodList) CountAll() int64 {
 	return int64(len(pl.pods))
 }
 
-func (pl *PodList) CountStatus(status uint) (num int64) {
+func (pl *PodList) CountStatus(status ContainerState) (num int64) {
 	num = 0
 
 	pl.mu.RLock()
@@ -211,7 +161,7 @@ func (pl *PodList) CountStatus(status uint) (num int64) {
 	}
 
 	for _, pod := range pl.pods {
-		if pod.status.pod == status {
+		if pod.status == status {
 			num++
 		}
 	}
@@ -227,8 +177,8 @@ func (pl *PodList) CountContainers() (num int64) {
 	return int64(len(pl.containers))
 }
 
-type PodOp func(*Pod) error
-type PodFilterOp func(*Pod) bool
+type PodOp func(*XPod) error
+type PodFilterOp func(*XPod) bool
 
 func (pl *PodList) Foreach(fn PodOp) error {
 	pl.mu.RLock()
@@ -245,13 +195,13 @@ func (pl *PodList) foreachUnsafe(fn PodOp) error {
 	return nil
 }
 
-func (pl *PodList) Find(fn PodFilterOp) *Pod {
+func (pl *PodList) Find(fn PodFilterOp) *XPod {
 	pl.mu.RLock()
 	defer pl.mu.RUnlock()
 	return pl.findUnsafe(fn)
 }
 
-func (pl *PodList) findUnsafe(fn PodFilterOp) *Pod {
+func (pl *PodList) findUnsafe(fn PodFilterOp) *XPod {
 	for _, p := range pl.pods {
 		if fn(p) {
 			return p

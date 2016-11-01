@@ -5,44 +5,57 @@ import (
 	"io"
 
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/golang/glog"
 
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
-func (p *Pod) CreateExec(containerId, cmd string, terminal bool) (string, error) {
-	cs, ok := p.status.containers[containerId]
+type Exec struct {
+	Id        string
+	Container string
+	Cmds      string
+	Terminal  bool
+	ExitCode  uint8
+}
+
+func (p *XPod) CreateExec(containerId, cmds string, terminal bool) (string, error) {
+	c, ok := p.containers[containerId]
 	if !ok {
-		err := fmt.Errorf("no container %s available for exec %s", containerId, cmd)
-		glog.Error(err)
+		err := fmt.Errorf("no container available for exec %s", cmds)
+		p.Log(ERROR, err)
 		return "", err
 	}
 
-	if !cs.IsAlive() {
-		err := fmt.Errorf("container %s is not available (%d) for exec %s", containerId, cs.CurrentState(), cmd)
-		glog.Error(err)
+	if !c.IsAlive() {
+		err := fmt.Errorf("container is not available (%v) for exec %s", c.CurrentState(), cmds)
+		p.Log(ERROR, err)
 		return "", err
 	}
 
 	execId := fmt.Sprintf("exec-%s", utils.RandStr(10, "alpha"))
 
-	p.status.sLock.Lock()
-	defer p.status.sLock.Unlock()
+	p.statusLock.Lock()
+	p.execs[execId] = &Exec{
+		Container: containerId,
+		Id:        execId,
+		Cmds:      cmds,
+		Terminal:  terminal,
+		ExitCode:  255,
+	}
+	p.statusLock.Unlock()
 
-	p.status.AddExec(containerId, execId, cmd, terminal)
 	return execId, nil
 }
 
-func (p *Pod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId, execId string) error {
-	p.status.sLock.RLock()
-	defer p.status.sLock.RUnlock()
+func (p *XPod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId, execId string) error {
+	p.statusLock.RLock()
+	es, ok := p.execs[execId]
+	p.statusLock.RUnlock()
 
-	es := p.status.GetExec(execId)
-	if es == nil {
+	if !ok {
 		err := fmt.Errorf("no exec %s exists for container %s", execId, containerId)
-		glog.Error(err)
+		p.Log(ERROR, err)
 		return err
 	}
 
@@ -57,48 +70,50 @@ func (p *Pod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId,
 		tty.Stdout = stdcopy.NewStdWriter(stdout, stdcopy.Stdout)
 	}
 
-	go func() {
+	go func(es *Exec) {
 		result := p.sandbox.WaitProcess(false, []string{execId}, -1)
 		if result == nil {
 			err := fmt.Errorf("can not wait exec %s for container %s", execId, containerId)
-			glog.Error(err)
+			p.Log(ERROR, err)
 			return
 		}
 
 		r, ok := <- result
 		if !ok {
 			err := fmt.Errorf("waiting exec %s of container %s interrupted", execId, containerId)
-			glog.Error(err)
+			p.Log(ERROR, err)
 			return
 		}
 
-		p.status.sLock.RLock()
-		defer p.status.sLock.RUnlock()
-
-		glog.V(1).Infof("exec %s of container %s terminated at %v with code %d", execId, containerId, r.FinishedAt, r.Code)
-		p.status.SetExecStatus(execId, r.Code)
-	}()
+		p.Log(DEBUG, "exec %s of container %s terminated at %v with code %d", execId, containerId, r.FinishedAt, r.Code)
+		es.ExitCode = r.Code
+	}(es)
 
 	return p.sandbox.Exec(es.Container, es.Id, es.Cmds, es.Terminal, tty)
 }
 
-func (p *Pod) GetExecExitCode(containerId, execId string) (uint8, error) {
-	p.status.sLock.RLock()
-	defer p.status.sLock.RUnlock()
+func (p *XPod) GetExecExitCode(containerId, execId string) (uint8, error) {
+	p.statusLock.RLock()
+	es, ok := p.execs[execId]
+	p.statusLock.RUnlock()
 
-	es := p.status.GetExec(execId)
-	if es == nil {
+	if !ok {
 		err := fmt.Errorf("no exec %s exists for container %s", execId, containerId)
-		glog.Error(err)
+		p.Log(ERROR, err)
 		return 255, err
 	}
 
 	return es.ExitCode, nil
 }
 
-func (p *Pod) DeleteExec(containerId, execId string) {
-	p.status.sLock.Lock()
-	defer p.status.sLock.Unlock()
+func (p *XPod) DeleteExec(containerId, execId string) {
+	p.statusLock.Lock()
+	delete(p.execs, execId)
+	p.statusLock.Unlock()
+}
 
-	p.status.DeleteExec(execId)
+func (p *XPod) CleanupExecs() {
+	p.statusLock.Lock()
+	p.execs = make(map[string]*Exec)
+	p.statusLock.Unlock()
 }

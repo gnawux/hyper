@@ -249,6 +249,19 @@ func CreateVolume(poolName, volName, dev_id, mkfs string, size int, restore bool
 }
 
 func UnmapVolume(deviceFullPath string) error {
+	f, err := os.Stat(deviceFullPath)
+	if err != nil && os.IsNotExist(err) {
+		glog.Warningf("device to be umounted (%s) does not exist", deviceFullPath)
+		return nil
+	} else if err != nil {
+		glog.Errorf("file %s could not be unmapped: %v", deviceFullPath, err)
+		return err
+	} else if f.Mode() != os.ModeDevice {
+		err := fmt.Errorf("only device could be unmapped, %s is %v", deviceFullPath, f.Mode())
+		glog.Error(err)
+		return err
+	}
+
 	args := fmt.Sprintf("dmsetup remove -f %s", deviceFullPath)
 	cmd := exec.Command("/bin/sh", "-c", args)
 	if output, err := cmd.CombinedOutput(); err != nil {
