@@ -170,7 +170,6 @@ func (p *XPod) createSandbox(spec *apitypes.UserPod) error {
 
 	go p.waitVMInit()
 	go p.waitVMStop()
-	go p.waitCleanup()
 	sandbox.InitSandbox(config)
 
 	p.sandbox = sandbox
@@ -199,7 +198,6 @@ func (p *XPod) reconnectSandbox(sandboxId string) error {
 	p.status = S_POD_RUNNING
 	p.sandbox = sandbox
 	go p.waitVMStop()
-	go p.waitCleanup()
 	return nil
 }
 
@@ -218,11 +216,9 @@ func (p *XPod) waitVMInit() {
 	} else {
 		p.statusLock.Lock()
 		if p.sandbox != nil {
-			p.sandbox.Shutdown()
-			p.sandbox = nil
+			go p.sandbox.Shutdown()
 		}
-		p.cleanup(true, "sandbox init failed")
-		p.status = S_POD_STOPPED
+		p.status = S_POD_STOPPING
 		p.statusLock.Unlock()
 	}
 }

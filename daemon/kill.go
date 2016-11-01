@@ -15,8 +15,8 @@ func (daemon *Daemon) KillContainer(name string, sig int64) error {
 	}
 
 	glog.V(1).Infof("found container %s to kill, signal %d", name, sig)
-	if p.ContainerIsAlive(id) {
-		return p.Kill(id, sig)
+	if p.IsContainerRunning(id) {
+		return p.KillContainer(id, sig)
 	}
 
 	glog.V(1).Infof("container %s not in alive status, ignore kill", name)
@@ -52,8 +52,8 @@ func (daemon *Daemon) KillPodContainers(podName, container string, sig int64) er
 	}
 
 	for _, cid := range containers {
-		if p.ContainerIsAlive(cid) {
-			e := p.Kill(cid, sig)
+		if p.IsContainerRunning(cid) {
+			e := p.KillContainer(cid, sig)
 			if e != nil {
 				glog.Error(e)
 				err = e

@@ -87,6 +87,16 @@ func (p *XPod) IsAlive() bool {
 	return alive
 }
 
+func (p *XPod) IsContainerRunning(cid string) bool {
+	if !p.IsRunning() {
+		return false
+	}
+	if c, ok := p.containers[cid]; ok {
+		return c.IsRunning()
+	}
+	return false
+}
+
 func (p *XPod) StatusString() string {
 	var (
 		status string
@@ -244,4 +254,19 @@ func (p *XPod) Attach(cid string, stdin io.ReadCloser, stdout io.WriteCloser, rs
 	}
 
 	return c.attach(stdin, stdout, nil, rsp)
+}
+
+func (p *XPod) TtyResize(cid, execId string, h, w int) error {
+	if !p.IsAlive() || p.sandbox == nil {
+		err := fmt.Errorf("only alive container could be attached, current %v", p.status)
+		p.Log(ERROR, err)
+		return err
+	}
+	_, ok := p.containers[cid]
+	if !ok {
+		err := fmt.Errorf("container %s not exist", cid)
+		p.Log(ERROR, err)
+		return err
+	}
+	return p.sandbox.Tty(cid, execId, h, w)
 }

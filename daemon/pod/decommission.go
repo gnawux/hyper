@@ -62,17 +62,6 @@ func (p *XPod) Stop(graceful int) error {
 		return err
 	}
 
-	err = p.decommitResources()
-	if err != nil {
-		p.Log(ERROR, "pod stopping failed, failed to decommit the resources: %v", err)
-		return err
-	}
-
-	p.Log(INFO, "pod stopped")
-	p.statusLock.Lock()
-	p.status = S_POD_STOPPED
-	p.statusLock.Unlock()
-
 	return nil
 }
 
@@ -467,28 +456,29 @@ func (p *XPod) decommitResources() (err error) {
 	return err
 }
 
-func (p *XPod) cleanup(cleanup bool, comments string) {
-	select {
-	case p.cleanChan <- cleanup:
-		p.Log(INFO, "pod quit (failed %v): %s", cleanup, comments)
-	default:
-		p.Log(INFO, "[ignored (duplicated)] pod quit (failed %v): %s", cleanup, comments)
+func (p *XPod) cleanup() {
+	p.statusLock.RLock()
+	if p.status == S_POD_STOPPED {
+		p.statusLock.RUnlock()
+		return
+	} else {
+		p.status = S_POD_STOPPING
 	}
-}
+	p.statusLock.RUnlock()
 
-func (p *XPod) waitCleanup() {
-	cleanup, ok := <- p.cleanChan
-	if !ok {
-		p.Log(WARNING, "quit chan of pod unexpected broken")
-		return
+	err := p.decommitResources()
+	if err != nil {
+		p.statusLock.Lock()
+		p.status = S_POD_ERROR
+		p.statusLock.Unlock()
+		p.Log(ERROR, "pod stopping failed, failed to decommit the resources: %v", err)
+		return err
 	}
-	if !cleanup {
-		p.Log(INFO, "pod quit without cleanup")
-		return
-	}
-	// TODO: cleanup
-	p.Log(INFO, "pod quit, then cleanup")
-	return
+
+	p.Log(INFO, "pod stopped")
+	p.statusLock.Lock()
+	p.status = S_POD_STOPPED
+	p.statusLock.Unlock()
 }
 
 func (p *XPod) waitVMStop() {
@@ -501,8 +491,5 @@ func (p *XPod) waitVMStop() {
 
 	_, _ = <-p.sandbox.WaitVm(-1)
 	p.Log(INFO, "got vm exit event")
-	p.statusLock.Lock()
-	p.status = S_POD_STOPPED
-	p.cleanup(true, "vm exited")
-	p.statusLock.Unlock()
+	p.cleanup()
 }
