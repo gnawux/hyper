@@ -14,14 +14,14 @@ import (
 func (s *ServerRPC) PodCreate(ctx context.Context, req *types.PodCreateRequest) (*types.PodCreateResponse, error) {
 	glog.V(3).Infof("PodCreate with request %s", req.String())
 
-	pod, err := s.daemon.CreatePod(req.PodID, req.PodSpec)
+	p, err := s.daemon.CreatePod(req.PodID, req.PodSpec)
 	if err != nil {
 		glog.Errorf("CreatePod failed: %v", err)
 		return nil, err
 	}
 
 	return &types.PodCreateResponse{
-		PodID: pod.Id,
+		PodID: p.Name,
 	}, nil
 }
 

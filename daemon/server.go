@@ -323,7 +323,7 @@ func (daemon *Daemon) CmdCreatePod(podArgs string, autoremove bool) (*engine.Env
 	}
 
 	v := &engine.Env{}
-	v.Set("ID", p.Id)
+	v.Set("ID", p.Name)
 	v.SetInt("Code", 0)
 	v.Set("Cause", "")
 

@@ -31,10 +31,5 @@ func (daemon *Daemon) StopContainer(container string, graceful int) error {
 		return fmt.Errorf("can not found container %s", container)
 	}
 
-	if !p.ContainerIsRunning(id) { // should we check if it is creating?
-		glog.Warningf("To be stopped container, %s, is not running", container)
-		return nil
-	}
-
 	return p.StopContainer(id, graceful)
 }

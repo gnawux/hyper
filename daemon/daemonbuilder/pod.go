@@ -276,15 +276,15 @@ func (d Docker) ContainerCreate(params types.ContainerCreateConfig) (types.Conta
 		return types.ContainerCreateResponse{}, err
 	}
 
-	pod, err := d.Daemon.CreatePod(podId, &podSpec)
+	p, err := d.Daemon.CreatePod(podId, &podSpec)
 	if err != nil {
 		return types.ContainerCreateResponse{}, err
 	}
 
-	if len(pod.Status().Containers) != 1 {
+	if len(p.Status().Containers) != 1 {
 		return types.ContainerCreateResponse{}, fmt.Errorf("container count in pod is incorrect")
 	}
-	cId := pod.Status().Containers[0].Id
+	cId := p.Status().Containers[0].Id
 	if params.HostConfig != nil {
 		d.hyper.BasicPods[cId] = podId
 		glog.Infof("basic containerId %s, podId %s", cId, podId)
