@@ -157,6 +157,13 @@ func (p *XPod) SandboxStatusString() string {
 	return status
 }
 
+func (p *XPod) ContainerStatusString(cid string) string {
+	if c, ok := p.containers[cid]; ok {
+		return c.StatusString()
+	}
+	return ""
+}
+
 func (p *XPod) ContainerHasTty(cid string) bool {
 	if c, ok := p.containers[cid]; ok {
 		return c.HasTty()

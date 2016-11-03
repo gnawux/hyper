@@ -7,11 +7,11 @@ import (
 	apitypes "github.com/hyperhq/hyperd/types"
 )
 
-type pMatcher func(p *pod.Pod) (match, quit bool)
+type pMatcher func(p *pod.XPod) (match, quit bool)
 
 func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string][]string, error) {
 	var (
-		pl       = []*pod.Pod{}
+		pl       = []*pod.XPod{}
 		matchers = []pMatcher{}
 
 		list                  = make(map[string][]string)
@@ -24,7 +24,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 	}
 
 	if vmId != "" {
-		m := func(p *pod.Pod) (match, quit bool) {
+		m := func(p *pod.XPod) (match, quit bool) {
 			if p.SandboxName() == vmId {
 				return true, true
 			}
@@ -42,7 +42,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 
 	if len(pl) > 0 {
 		xpl := pl
-		pl = []*pod.Pod{}
+		pl = []*pod.XPod{}
 
 		if len(matchers) > 0 {
 			for _, p := range xpl {
@@ -64,11 +64,11 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			}
 		}
 	} else if len(matchers) == 0 {
-		daemon.PodList.Foreach(func(p *pod.Pod) {
+		daemon.PodList.Foreach(func(p *pod.XPod) {
 			pl = append(pl, p)
 		})
 	} else {
-		daemon.PodList.Find(func(p *pod.Pod) {
+		daemon.PodList.Find(func(p *pod.XPod) {
 			var (
 				match = true
 				quit  = false
@@ -86,6 +86,10 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 	}
 
 	for _, p := range pl {
+		if p.IsNone() {
+			p.Log(pod.TRACE, "listing: ignore none status pod")
+			continue
+		}
 		switch item {
 		case "vm":
 			vm := p.SandboxName()
@@ -94,7 +98,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			}
 			vmJsonResponse = append(vmJsonResponse, vm+":"+p.Name+":"+p.SandboxStatusString())
 		case "pod":
-			podJsonResponse = append(podJsonResponse, p.PodStatusString())
+			podJsonResponse = append(podJsonResponse, p.StatusString())
 		case "container":
 			var cids []string
 			if auxiliary {
