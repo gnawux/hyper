@@ -71,6 +71,14 @@ func (p *XPod) SandboxName() string {
 	return ""
 }
 
+func (p *XPod) IsNone() bool {
+	p.statusLock.Lock()
+	isNone := p.status == S_POD_NONE
+	p.statusLock.Unlock()
+
+	return isNone
+}
+
 func (p *XPod) IsRunning() bool {
 	p.statusLock.Lock()
 	running := p.status == S_POD_RUNNING
@@ -115,7 +123,7 @@ func (p *XPod) StatusString() string {
 	}
 	switch p.status {
 	case S_POD_NONE:
-		status = "pending"
+		status = ""
 	case S_POD_STARTING:
 		status = "pending"
 	case S_POD_RUNNING:

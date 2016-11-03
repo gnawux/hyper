@@ -2,6 +2,8 @@ package pod
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"syscall"
 	"time"
 
@@ -12,6 +14,10 @@ import (
 
 type sandboxOp func(sb *hypervisor.Vm) error
 type stateValidator func(state PodState) bool
+
+func (p *XPod) ShouldWaitCleanUp() bool {
+	return p.sandbox != nil
+}
 
 func (p *XPod) Stop(graceful int) error {
 	var err error
@@ -79,6 +85,8 @@ func (p *XPod) Remove(force bool) error {
 	p.resourceLock.Lock()
 	defer p.resourceLock.Unlock()
 
+	p.Log(INFO, "removing pod")
+
 	if p.IsRunning() {
 		if !force {
 			err := fmt.Errorf("pod is running, cannot be removed")
@@ -89,8 +97,22 @@ func (p *XPod) Remove(force bool) error {
 		p.decommitResources()
 	}
 
+	p.statusLock.Lock()
+	p.status = S_POD_NONE
+	p.statusLock.Unlock()
+
+	if p.ShouldWaitCleanUp() {
+		p.Log(DEBUG, "should wait clean up before being purged")
+		return
+	}
+
+	os.RemoveAll(path.Join(utils.HYPER_ROOT, "services", p.Name))
+	os.RemoveAll(path.Join(utils.HYPER_ROOT, "hosts", p.Name))
+
 	//TODO get created volumes and remove them
 	//TODO should we remove containers during remove Pod?
+	//TODO should remove items in daemondb:	daemon.db.DeletePod(p.Id)
+	p.factory.registry.Release(p.Name)
 	return nil
 }
 
@@ -258,6 +280,7 @@ func (p *XPod) RemoveContainer(id string) error {
 		c.Log(ERROR, "failed to remove container through engine")
 		return err
 	}
+	p.factory.registry.ReleaseContainer(id, c.SpecName())
 
 	removedVols := make([]string, 0, len(cvols))
 	for _, cv := range cvols {
@@ -277,6 +300,7 @@ func (p *XPod) RemoveContainer(id string) error {
 	}
 
 	//TODO: remove volumes those created during container creating
+	//TODO: remove containers in daemondb daemon.db.DeleteP2C(p.Id)
 
 	return nil
 }
@@ -457,8 +481,15 @@ func (p *XPod) decommitResources() (err error) {
 }
 
 func (p *XPod) cleanup() {
+	//if removing, the remove will get the resourceLock in advance, and it will set
+	// the pod status to NONE when it complete.
+	// Therefore, if get into cleanup() after remove, cleanup should exit when it
+	// got a
+	p.resourceLock.Lock()
+	defer p.resourceLock.Unlock()
+
 	p.statusLock.RLock()
-	if p.status == S_POD_STOPPED {
+	if p.status == S_POD_STOPPED || p.status == S_POD_NONE {
 		p.statusLock.RUnlock()
 		return
 	} else {
@@ -477,7 +508,9 @@ func (p *XPod) cleanup() {
 
 	p.Log(INFO, "pod stopped")
 	p.statusLock.Lock()
-	p.status = S_POD_STOPPED
+	if p.status != S_POD_NONE {
+		p.status = S_POD_STOPPED
+	}
 	p.statusLock.Unlock()
 }
 
