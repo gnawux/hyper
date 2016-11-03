@@ -7,9 +7,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/daemon"
+
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/hyperd/utils"
-	"others/github.com/docker/docker/daemon"
+	runvtypes "github.com/hyperhq/runv/hypervisor/types"
 )
 
 type sandboxOp func(sb *hypervisor.Vm) error
@@ -113,6 +115,24 @@ func (p *XPod) Remove(force bool) error {
 	//TODO should we remove containers during remove Pod?
 	//TODO should remove items in daemondb:	daemon.db.DeletePod(p.Id)
 	p.factory.registry.Release(p.Name)
+	return nil
+}
+
+func (p *XPod) Dissociate() error {
+	p.resourceLock.Lock()
+	defer p.resourceLock.Unlock()
+
+	ret, err := p.sandbox.ReleaseVm()
+	p.factory.registry.Release(p.Name)
+	for _, c := range p.containers {
+		p.factory.registry.ReleaseContainer(c.Id(), c.SpecName())
+	}
+	if err != nil {
+		p.Log(ERROR, "failed to release vm (%v): %v", ret, err)
+		if ret != runvtypes.E_BUSY {
+			return err
+		}
+	}
 	return nil
 }
 

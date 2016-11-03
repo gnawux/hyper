@@ -3,86 +3,12 @@ package daemon
 import (
 	"fmt"
 	"runtime"
-	"sync"
 
 	"github.com/golang/glog"
-	apitypes "github.com/hyperhq/hyperd/types"
-	"github.com/hyperhq/hyperd/utils"
+	"github.com/hyperhq/hyperd/daemon/pod"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
 )
-
-func (daemon *Daemon) CreateVm(cpu, mem int, async bool) (*hypervisor.Vm, error) {
-	vm, err := daemon.StartVm("", cpu, mem, false)
-	if err != nil {
-		return nil, err
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err != nil {
-			daemon.KillVm(vm.Id)
-		}
-	}()
-
-	if !async {
-		err = daemon.WaitVmStart(vm)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return vm, nil
-}
-
-func (daemon *Daemon) KillVm(vmId string) (int, string, error) {
-	glog.V(3).Infof("KillVm %s", vmId)
-	vm, ok := daemon.VmList.Get(vmId)
-	if !ok {
-		glog.V(3).Infof("Cannot find vm %s", vmId)
-		return 0, "", nil
-	}
-	vm.Kill()
-	daemon.RemoveVm(vmId)
-
-	return 0, "", nil
-}
-
-func (p *LegacyPod) AssociateVm(daemon *Daemon, vmId string) error {
-	if p.VM != nil && p.VM.Id != vmId {
-		return fmt.Errorf("pod %s already has vm %s, but trying to associate with %s", p.Id, p.VM.Id, vmId)
-	} else if p.VM != nil {
-		return nil
-	}
-
-	vmData, err := daemon.db.GetVM(vmId)
-	if err != nil {
-		return err
-	}
-	glog.V(1).Infof("Get data for vm(%s) pod(%s)", vmId, p.Id)
-
-	p.VM = daemon.VmList.NewVm(vmId, p.Spec.Resource.Vcpu, p.Spec.Resource.Memory, false)
-	p.PodStatus.Vm = vmId
-
-	err = p.VM.AssociateVm(p.PodStatus, vmData)
-	if err != nil {
-		p.VM = nil
-		p.PodStatus.Vm = ""
-		return err
-	}
-
-	daemon.VmList.Add(p.VM)
-
-	err = p.startLogging(daemon)
-	if err != nil {
-		glog.Errorf("fail to start logging for pod %s: %v", p.Id, err)
-	}
-
-	return nil
-}
 
 func (daemon *Daemon) ReleaseAllVms() (int, error) {
 	var (
@@ -90,19 +16,28 @@ func (daemon *Daemon) ReleaseAllVms() (int, error) {
 		err error = nil
 	)
 
-	daemon.VmList.Foreach(func(vm *hypervisor.Vm) error {
-		glog.V(3).Infof("release vm %s", vm.Id)
-		ret, err = vm.ReleaseVm()
-		if err != nil {
-			// FIXME: return nil to continue to release other vms?
-			glog.Errorf("fail to release vm %s: %v", vm.Id, err)
-			return err
-		}
-		delete(daemon.VmList.vms, vm.Id)
-		return nil
+	daemon.PodList.Foreach(func(p *pod.XPod) error {
+		return p.Dissociate()
 	})
 
 	return ret, err
+}
+
+func (daemon *Daemon) StartSandbox(cpu, mem int) (*hypervisor.Vm, error) {
+	return daemon.StartVm("", cpu, mem, hypervisor.HDriver.SupportLazyMode())
+}
+
+func (daemon *Daemon) AssociateSandbox(id string) (*hypervisor.Vm, error) {
+	vmData, err := daemon.db.GetVM(id)
+	if err != nil {
+		return err
+	}
+	vm := hypervisor.NewVm(id, 0, 0, false)
+	err = vm.AssociateVm(vmData)
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
 }
 
 func (daemon *Daemon) StartVm(vmId string, cpu, mem int, lazy bool) (vm *hypervisor.Vm, err error) {
