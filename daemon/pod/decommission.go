@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/daemon"
+	dockertypes "github.com/docker/engine-api/types"
 
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/hyperd/utils"
@@ -118,7 +118,7 @@ func (p *XPod) Remove(force bool) error {
 	return nil
 }
 
-func (p *XPod) Dissociate() error {
+func (p *XPod) Dissociate(retry int) error {
 	p.resourceLock.Lock()
 	defer p.resourceLock.Unlock()
 
@@ -131,6 +131,14 @@ func (p *XPod) Dissociate() error {
 		p.Log(ERROR, "failed to release vm (%v): %v", ret, err)
 		if ret != runvtypes.E_BUSY {
 			return err
+		} else {
+			if retry < 3 {
+				time.AfterFunc(100*time.Millisecond, func(){
+					if p != nil {
+						p.Dissociate(retry+1)
+					}
+				})
+			}
 		}
 	}
 	return nil
@@ -295,7 +303,7 @@ func (p *XPod) RemoveContainer(id string) error {
 		c.Log(ERROR, "failed to umount root volume")
 		return err
 	}
-	err = p.factory.engine.ContainerRm(id, &daemon.ContainerRmConfig{})
+	err = p.factory.engine.ContainerRm(id, &dockertypes.ContainerRmConfig{})
 	if err != nil {
 		c.Log(ERROR, "failed to remove container through engine")
 		return err

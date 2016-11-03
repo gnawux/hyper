@@ -10,17 +10,16 @@ import (
 	"github.com/hyperhq/runv/hypervisor/types"
 )
 
-func (daemon *Daemon) ReleaseAllVms() (int, error) {
+func (daemon *Daemon) ReleaseAllVms() error {
 	var (
-		ret       = types.E_OK
 		err error = nil
 	)
 
-	daemon.PodList.Foreach(func(p *pod.XPod) error {
-		return p.Dissociate()
+	err = daemon.PodList.Foreach(func(p *pod.XPod) error {
+		return p.Dissociate(0)
 	})
 
-	return ret, err
+	return err
 }
 
 func (daemon *Daemon) StartSandbox(cpu, mem int) (*hypervisor.Vm, error) {

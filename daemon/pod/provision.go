@@ -84,6 +84,9 @@ func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 		return nil, err
 	}
 
+	//TODO: write the daemon db
+	//daemon.WritePodAndContainers(pod.Id)
+
 	// reserve again in case container is created
 	err = p.reserveNames(spec.Containers)
 	if err != nil {

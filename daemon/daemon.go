@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/hyperhq/hyperd/daemon/daemondb"
+	"github.com/hyperhq/hyperd/daemon/pod"
 
 	"github.com/Unknwon/goconfig"
 	docker "github.com/docker/docker/daemon"
@@ -22,27 +22,17 @@ import (
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/factory"
-	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 var (
 	DefaultLogPrefix string = "/var/run/hyper/Pods"
 )
 
-type GlobalLogConfig struct {
-	*pod.PodLogConfig
-	PathPrefix  string
-	PodIdInPath bool
-}
-
 type Daemon struct {
 	*docker.Daemon
 	ID          string
 	db          *daemondb.DaemonDB
-	PodList     *PodList
-	VmList      *VmList
+	PodList     *pod.PodList
 	Factory     factory.Factory
 	Kernel      string
 	Initrd      string
@@ -54,7 +44,7 @@ type Daemon struct {
 	Host        string
 	Storage     Storage
 	Hypervisor  string
-	DefaultLog  *GlobalLogConfig
+	DefaultLog  *pod.GlobalLogConfig
 }
 
 func (daemon *Daemon) Restore() error {
@@ -92,36 +82,22 @@ func (daemon *Daemon) Restore() error {
 			return err
 		}
 
-		p, err := daemon.createPodInternal(podId, &podSpec, true)
+		vmId, err := daemon.db.GetP2V(podId)
+		if err != nil {
+			glog.V(1).Infof("no existing VM for pod %s: %v", podId, err)
+		}
+
+		fc := pod.NewPodFactory(daemon.Storage, daemon.Daemon, daemon, daemon.DefaultLog)
+
+		p, err := pod.LoadXPod(fc, podSpec, vmId)
 		if err != nil {
 			glog.Warningf("Got a unexpected error when creating(load) pod %s, %v", podId, err)
 			continue
 		}
 
-		if err = daemon.AddPod(p, string(item.V)); err != nil {
-			//TODO: remove the created
-			glog.Warningf("Got a error duriong insert pod %s, %v", p.Id, err)
-			continue
+		if glog.V(3) {
+			p.Log(pod.TRACE, "container in pod %s: %v", p.Name, p.ContainerIds())
 		}
-
-		vmId, err := daemon.db.GetP2V(podId)
-		if err != nil {
-			glog.V(1).Infof("no existing VM for pod %s: %v", podId, err)
-			continue
-		}
-		if err := p.AssociateVm(daemon, string(vmId)); err != nil {
-			glog.V(1).Infof("Some problem during associate vm %s to pod %s, %v", string(vmId), podId, err)
-			// continue to next
-		}
-	}
-
-	if glog.V(3) {
-		glog.Infof("%d pod have been loaded", daemon.PodList.CountAll())
-		daemon.PodList.Foreach(func(p *Pod) error {
-			glog.Infof("container in pod %s status: %v", p.Id, p.Status().Containers)
-			glog.Infof("container in pod %s spec: %v", p.Id, p.Spec.Containers)
-			return nil
-		})
 	}
 
 	return nil
@@ -177,8 +153,7 @@ func NewDaemonFromDirectory(cfg *goconfig.ConfigFile) (*Daemon, error) {
 		Bios:        bios,
 		Cbfs:        cbfs,
 		VboxImage:   vboxImage,
-		PodList:     NewPodList(),
-		VmList:      NewVmList(),
+		PodList:     pod.NewPodList(),
 		Host:        host,
 		BridgeIP:    bridgeip,
 		BridgeIface: biface,
@@ -194,7 +169,7 @@ func NewDaemonFromDirectory(cfg *goconfig.ConfigFile) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	stor, err := StorageFactory(sysinfo)
+	stor, err := StorageFactory(sysinfo, daemon.db)
 	if err != nil {
 		return nil, err
 	}
@@ -281,8 +256,8 @@ func (daemon *Daemon) DefaultLogCfg(driver string, cfg map[string]string) {
 		}
 	}
 
-	daemon.DefaultLog = &GlobalLogConfig{
-		PodLogConfig: &pod.PodLogConfig{
+	daemon.DefaultLog = &pod.GlobalLogConfig{
+		PodLogConfig: &apitypes.PodLogConfig{
 			Type:   driver,
 			Config: cfg,
 		},
@@ -297,26 +272,6 @@ func (daemon *Daemon) GetPodNum() int64 {
 		return 0
 	}
 	return int64(len(pods))
-}
-
-func (daemon *Daemon) GetRunningPodNum() int64 {
-	return daemon.PodList.CountRunning()
-}
-
-func (daemon *Daemon) GetVolumeId(podId, volName string) (int, error) {
-	vols, err := daemon.db.ListPodVolumes(podId)
-	if err != nil {
-		return -1, err
-	}
-
-	dev_id := 0
-	for _, vol := range vols {
-		fields := strings.Split(string(vol), ":")
-		if fields[0] == volName {
-			dev_id, _ = strconv.Atoi(fields[1])
-		}
-	}
-	return dev_id, nil
 }
 
 func (daemon *Daemon) DeleteVolumeId(podId string) error {
@@ -337,98 +292,55 @@ func (daemon *Daemon) WritePodAndContainers(podId string) error {
 	}
 
 	containers := []string{}
-	for _, c := range p.PodStatus.Containers {
-		containers = append(containers, c.Id)
+	for _, c := range p.ContainerIds() {
+		containers = append(containers, c)
 	}
 
 	return daemon.db.UpdateP2C(podId, containers)
 }
 
 func (daemon *Daemon) GetVmByPodId(podId string) (string, error) {
-	pod, ok := daemon.PodList.Get(podId)
+	p, ok := daemon.PodList.Get(podId)
 	if !ok {
 		return "", fmt.Errorf("Not found Pod %s", podId)
 	}
-	return pod.PodStatus.Vm, nil
+	return p.SandboxName(), nil
 }
 
 func (daemon *Daemon) GetPodByContainer(containerId string) (string, error) {
-	if pod, ok := daemon.PodList.GetByContainerId(containerId); ok {
-		return pod.Id, nil
+	if p, ok := daemon.PodList.GetByContainerId(containerId); ok {
+		return p.Name, nil
 	} else {
 		return "", fmt.Errorf("Can not find that container!")
 	}
 }
 
-func (daemon *Daemon) GetPodByContainerIdOrName(name string) (pod *Pod, idx int, err error) {
-	if pod, idx, ok := daemon.PodList.GetByContainerIdOrName(name); ok {
-		return pod, idx, nil
+func (daemon *Daemon) GetPodByContainerIdOrName(name string) (*pod.XPod, error) {
+	if p, _, ok := daemon.PodList.GetByContainerIdOrName(name); ok {
+		return p, nil
 	} else {
-		return nil, -1, fmt.Errorf("cannot find container %s", name)
+		return nil, fmt.Errorf("cannot find container %s", name)
 	}
-}
-
-func (daemon *Daemon) AddPod(pod *Pod, podArgs string) (err error) {
-	// store the UserPod into the db
-	if err = daemon.db.UpdatePod(pod.Id, []byte(podArgs)); err != nil {
-		glog.V(1).Info("Found an error while saving the POD file")
-		return
-	}
-	defer func() {
-		if err != nil {
-			daemon.db.DeletePod(pod.Id)
-		}
-	}()
-
-	daemon.PodList.Put(pod)
-	defer func() {
-		if err != nil {
-			daemon.PodList.Delete(pod.Id)
-		}
-	}()
-
-	if err = daemon.WritePodAndContainers(pod.Id); err != nil {
-		glog.V(1).Info("Found an error while saving the Containers info")
-		return
-	}
-
-	return nil
-}
-
-func (daemon *Daemon) RemovePod(podId string) {
-	daemon.PodList.Delete(podId)
-}
-
-func (daemon *Daemon) AddVm(vm *hypervisor.Vm) {
-	daemon.VmList.Add(vm)
-}
-
-func (daemon *Daemon) RemoveVm(vmId string) {
-	daemon.VmList.Remove(vmId)
 }
 
 func (daemon *Daemon) DestroyAllVm() error {
-	var remains = []*Pod{}
-	daemon.PodList.Foreach(func(p *Pod) error {
+	var remains = []*pod.XPod{}
+	daemon.PodList.Foreach(func(p *pod.XPod) error {
 		remains = append(remains, p)
 		return nil
 	})
 	for _, p := range remains {
-		if _, _, err := daemon.StopPodWithinLock(p); err != nil {
-			glog.V(1).Infof("fail to stop %s: %v", p.Id, err)
+		if err := p.Stop(5); err != nil {
+			glog.V(1).Infof("fail to stop %s: %v", p.Name, err)
 		}
 	}
 	return nil
 }
 
 func (daemon *Daemon) DestroyAndKeepVm() error {
-	for i := 0; i < 3; i++ {
-		code, err := daemon.ReleaseAllVms()
-		if err != nil && code == types.E_BUSY {
-			continue
-		} else {
-			return err
-		}
+	err := daemon.ReleaseAllVms()
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -437,13 +349,7 @@ func (daemon *Daemon) Shutdown() error {
 	glog.V(0).Info("The daemon will be shutdown")
 	glog.V(0).Info("Shutdown all VMs")
 
-	daemon.VmList.Foreach(func(vm *hypervisor.Vm) error {
-		if _, _, err := vm.Kill(); err == nil {
-			delete(daemon.VmList.vms, vm.Id)
-		}
-		return nil
-	})
-
+	daemon.Factory.CloseFactory()
 	daemon.db.Close()
 	glog.Flush()
 	return nil

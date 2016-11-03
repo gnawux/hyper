@@ -261,7 +261,6 @@ func mainDaemon(opt *Options) {
 		d.DestroyAllVm()
 		break
 	}
-	d.Factory.CloseFactory()
 	api.Close()
 	d.Shutdown()
 }
