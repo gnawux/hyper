@@ -55,7 +55,7 @@ func (daemon *Daemon) GetContainerLogs(container string, config *ContainerLogsCo
 		return err
 	}
 
-	follow := config.Follow && p.ContainerIsAlive(id)
+	follow := config.Follow && p.IsContainerAlive(id)
 	tailLines, err = strconv.Atoi(config.Tail)
 	if err != nil {
 		tailLines = -1

@@ -223,6 +223,10 @@ func (c *Container) StatusString() string {
 	return strings.Join([]string{c.Id(), c.SpecName(), c.p.Name, status}, ":")
 }
 
+func (c *Container) HasTty() bool {
+	return c.spec.Tty
+}
+
 // Container resources
 func (c *Container) init(allowCreate bool) error {
 	var (

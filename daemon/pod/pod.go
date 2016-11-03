@@ -97,6 +97,13 @@ func (p *XPod) IsContainerRunning(cid string) bool {
 	return false
 }
 
+func (p *XPod) IsContainerAlive(cid string) bool {
+	if c, ok := p.containers[cid]; ok {
+		return c.IsAlive()
+	}
+	return false
+}
+
 func (p *XPod) StatusString() string {
 	var (
 		status string
@@ -140,6 +147,13 @@ func (p *XPod) SandboxStatusString() string {
 	}
 	p.statusLock.RUnlock()
 	return status
+}
+
+func (p *XPod) ContainerHasTty(cid string) bool {
+	if c, ok := p.containers[cid]; ok {
+		return c.HasTty()
+	}
+	return false
 }
 
 func (p *XPod) ContainerCreate(c *apitypes.UserContainer) error {
@@ -269,4 +283,35 @@ func (p *XPod) TtyResize(cid, execId string, h, w int) error {
 		return err
 	}
 	return p.sandbox.Tty(cid, execId, h, w)
+}
+
+func (p *XPod) RenameContainer(cid, name string) error {
+	var err error
+	c, ok := p.containers[cid]
+	if !ok {
+		err = fmt.Errorf("container %s not found", cid)
+		p.Log(ERROR, err)
+		return err
+	}
+	old := c.SpecName()
+	err = p.factory.registry.ReserveContainerName(name, p.Name)
+	if err != nil {
+		c.Log(ERROR, "failed to reserve new name during rename: %v", err)
+		return err
+	}
+	defer func() {
+		if err != nil {
+			p.factory.registry.ReleaseContainerName(name)
+		}
+	}()
+
+	err = c.rename(name)
+	if err != nil {
+		c.Log(ERROR, "failed to rename container: %v", err)
+		return err
+	}
+
+	p.Log(INFO, "rename container from %s to %s", old, name)
+	p.factory.registry.ReleaseContainer(old)
+	return nil
 }

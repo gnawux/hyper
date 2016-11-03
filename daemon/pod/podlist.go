@@ -38,6 +38,14 @@ func (pl *PodList) ReserveContainerID(id, pod string) error {
 	return nil
 }
 
+func (pl *PodList) ReserveContainerName(name, pod string) error {
+	if pn, ok := pl.containerNames[name]; ok && pn !=pod {
+		return fmt.Errorf("the container name %s has already taken by pod %s", name, pn)
+	}
+	pl.containerNames[name] = pod
+	return nil
+}
+
 func (pl *PodList) ReserveContainer(id, name, pod string) error {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
@@ -90,6 +98,13 @@ func (pl *PodList) ReleaseContainer(id, name string) {
 	defer pl.mu.Unlock()
 
 	delete(pl.containers, id)
+	delete(pl.containerNames, name)
+}
+
+func (pl *PodList) ReleaseContainerName(name string) {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+
 	delete(pl.containerNames, name)
 }
 
