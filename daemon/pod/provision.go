@@ -37,7 +37,13 @@ func LoadXPod(factory *PodFactory, spec *apitypes.UserPod, sandboxId string) (*X
 	}
 
 	err = p.initResources(spec, false)
+	if err != nil {
+		return nil, err
+	}
 
+	if p.info == nil { // TODO: try load info from db
+		p.initPodInfo()
+	}
 	//resume logging
 	if p.status == S_POD_RUNNING {
 		for _, c := range p.containers {
@@ -64,7 +70,7 @@ func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 			p.releaseNames(spec.Containers)
 		}
 	}()
-	err = p.createSandbox(spec)
+	err = p.createSandbox(spec) //TODO: add defer for rollback
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +89,8 @@ func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	p.initPodInfo()
 
 	//TODO: write the daemon db
 	//daemon.WritePodAndContainers(pod.Id)

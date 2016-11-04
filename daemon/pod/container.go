@@ -27,7 +27,9 @@ import (
 )
 
 const epocZero = time.Time{}
+
 type ContainerState int32
+
 const (
 	S_CONTAINER_NONE ContainerState = iota
 	S_CONTAINER_CREATING
@@ -60,9 +62,9 @@ type Container struct {
 
 func newContainerStatus() *ContainerStatus {
 	return &ContainerStatus{
-		State: S_CONTAINER_NONE,
-		CreatedAt: epocZero,
-		StartedAt: epocZero,
+		State:      S_CONTAINER_NONE,
+		CreatedAt:  epocZero,
+		StartedAt:  epocZero,
 		FinishedAt: epocZero,
 	}
 }
@@ -107,6 +109,103 @@ func (c *Container) hasTty() bool {
 	return c.spec.Tty
 }
 
+func (c *Container) CreatedAt() string {
+	c.status.RLock()
+	ct := c.status.CreatedAt.Format(time.RFC3339)
+	c.status.RUnlock()
+	return ct
+}
+
+func (c *Container) Info() *apitypes.Container {
+	c.status.RLock()
+	defer c.status.RUnlock()
+	cinfo := &apitypes.Container{
+		Name:            c.SpecName(),
+		ContainerID:     c.Id(),
+		Image:           c.spec.Image,
+		Commands:        c.spec.Command,
+		WorkingDir:      c.spec.Workdir, //might be override by descript
+		Labels:          c.spec.Labels,
+		Ports:           make([]*apitypes.ContainerPort, 0, len(c.spec.Ports)),
+		VolumeMounts:    make([]*apitypes.VolumeMount, 0, len(c.spec.Volumes)),
+		Tty:             c.spec.Tty,
+		ImagePullPolicy: "",
+	}
+	for _, port := range c.spec.Ports {
+		cinfo.Ports = append(cinfo.Ports, &apitypes.ContainerPort{
+			HostPort:      port.HostPort,
+			ContainerPort: port.ContainerPort,
+			Protocol:      port.Protocol,
+		})
+	}
+	for _, vol := range c.spec.Volumes {
+		cinfo.VolumeMounts = append(cinfo.VolumeMounts, &apitypes.VolumeMount{
+			Name:      vol.Volume,
+			MountPath: vol.Path,
+			ReadOnly:  vol.ReadOnly,
+		})
+	}
+	if c.descript != nil {
+		cinfo.ImageID = c.descript.Image
+		cinfo.Args = c.descript.Args
+		cinfo.WorkingDir = c.descript.Workdir
+		cinfo.Env = make([]*apitypes.EnvironmentVar, 0, len(c.descript.Envs))
+		for e, v := range c.descript.Envs {
+			cinfo.Env = append(cinfo.Env, &apitypes.EnvironmentVar{
+				Env:   e,
+				Value: v,
+			})
+		}
+	} else {
+		cinfo.Env = make([]*apitypes.EnvironmentVar, 0, len(c.spec.Envs))
+		for _, env := range c.spec.Envs {
+			cinfo.Env = append(cinfo.Env, &apitypes.EnvironmentVar{
+				Env:   env.Env,
+				Value: env.Value,
+			})
+		}
+
+	}
+	return cinfo
+}
+
+func (c *Container) InfoStatus() *apitypes.ContainerStatus {
+	c.status.RLock()
+	defer c.status.RUnlock()
+	s := &apitypes.ContainerStatus{
+		Name: c.SpecName(),
+		ContainerID: c.Id(),
+		Waiting: &apitypes.WaitingStatus{Reason: ""},
+		Running: &apitypes.RunningStatus{StartedAt: ""},
+		Terminated: &apitypes.TermStatus{},
+	}
+	switch c.status.State {
+	case S_CONTAINER_NONE, S_CONTAINER_CREATING:
+		s.Waiting.Reason = "Pending"
+		s.Phase = "pending"
+	case S_CONTAINER_CREATED:
+		if c.status.FinishedAt != epocZero {
+			s.Terminated.StartedAt = c.status.StartedAt.Format(time.RFC3339)
+			s.Terminated.FinishedAt = c.status.FinishedAt.Format(time.RFC3339)
+			s.Terminated.ExitCode = c.status.ExitCode
+			if c.status.ExitCode == 0 {
+				s.Terminated.Reason = "Succeeded"
+				s.Phase = "succeeded"
+			} else {
+				s.Terminated.Reason = "Failed"
+				s.Phase = "failed"
+			}
+		} else {
+			s.Waiting.Reason = "Pending"
+			s.Phase = "pending"
+		}
+	case S_CONTAINER_RUNNING, S_CONTAINER_STOPPING:
+		s.Phase = "running"
+		s.Running.StartedAt = c.status.StartedAt.Format(time.RFC3339)
+	}
+	return s
+}
+
 // Container life cycle operations:
 func (c *Container) Add() error {
 	return nil
@@ -136,7 +235,7 @@ func (c *Container) Remove() error {
 
 // Container operations:
 
-func (c *Container) attach( stdin io.ReadCloser, stdout io.WriteCloser, winsize *hypervisor.WindowSize, rsp chan<- error) error {
+func (c *Container) attach(stdin io.ReadCloser, stdout io.WriteCloser, winsize *hypervisor.WindowSize, rsp chan<- error) error {
 	if c.p.sandbox == nil || c.descript == nil {
 		err := fmt.Errorf("container not ready for attach")
 		c.Log(ERROR, err)
@@ -956,7 +1055,7 @@ func (cs *ContainerStatus) Running(t time.Time) error {
 	if cs.State != S_CONTAINER_RUNNING {
 		return fmt.Errorf("only RUNNING container could set started time, current: %d", cs.State)
 	}
-	cs.StartedAt =  t
+	cs.StartedAt = t
 	return nil
 }
 
@@ -1001,4 +1100,3 @@ func (cs *ContainerStatus) IsStopped() bool {
 
 	return cs.State == S_CONTAINER_CREATED
 }
-

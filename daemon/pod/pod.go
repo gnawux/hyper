@@ -5,12 +5,15 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/daemon/logger"
 
 	"github.com/hyperhq/hyperd/lib/hlog"
 	apitypes "github.com/hyperhq/hyperd/types"
+	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
+	runvtypes "github.com/hyperhq/runv/hypervisor/types"
 )
 
 const (
@@ -50,6 +53,7 @@ type XPod struct {
 	sandbox      *hypervisor.Vm
 	factory      *PodFactory
 
+	info         *apitypes.PodInfo
 	status       PodState
 	execs        map[string]*Exec
 	statusLock   *sync.RWMutex
@@ -169,6 +173,128 @@ func (p *XPod) ContainerHasTty(cid string) bool {
 		return c.HasTty()
 	}
 	return false
+}
+
+func (p *XPod) Info() (*apitypes.PodInfo, error) {
+	if p.status == S_POD_NONE {
+		err := fmt.Errorf("pod not ready")
+		p.Log(WARNING, err)
+		return nil, err
+	}
+
+	if p.info == nil {
+		p.initPodInfo()
+	}
+
+	p.updatePodInfo()
+
+	return p.info, nil
+}
+
+func (p *XPod) ContainerInfo(cid string) (*apitypes.ContainerInfo, error) {
+	if c, ok := p.containers[cid]; ok {
+		ci := &apitypes.ContainerInfo{
+			PodID: p.Name,
+			Container: c.Info(),
+			CreatedAt: c.CreatedAt(),
+			Status: c.InfoStatus(),
+		}
+		return ci, nil
+	}
+	err := fmt.Errorf("container %s does not existing", cid)
+	p.Log(ERROR, err)
+	return nil, err
+
+}
+
+func (p *XPod) Stats() *runvtypes.VmResponse {
+	//use channel, don't block in statusLock
+	ch := make(chan*runvtypes.VmResponse, 1)
+
+	p.statusLock.Lock()
+	if p.sandbox == nil {
+		ch <- nil
+	}
+	go func(sb *hypervisor.Vm) {
+		ch <- sb.Stats()
+	} (p.sandbox)
+	p.statusLock.Unlock()
+
+	return <-ch
+}
+
+func (p *XPod) initPodInfo() {
+
+	info := &apitypes.PodInfo{
+		PodID: p.Name,
+		PodName: p.Name,
+		Kind: "Pod",
+		CreatedAt: time.Now().UTC().Unix(),
+		ApiVersion: utils.APIVERSION,
+		Spec: &apitypes.PodSpec{
+			Vcpu: p.globalSpec.Resource.Vcpu,
+			Memory: p.globalSpec.Resource.Memory,
+			Labels: p.labels,
+		},
+		Status: &apitypes.PodStatus{
+			HostIP: utils.GetHostIP(),
+		},
+	}
+	if p.sandbox != nil {
+		info.Vm = p.sandbox.Id
+	}
+	return info, nil
+}
+
+func (p *XPod) updatePodInfo() error {
+	p.statusLock.Lock()
+	defer p.statusLock.Unlock()
+
+	var (
+		containers = make([]*apitypes.Container, 0, len(p.containers))
+		volumes    = make([]*apitypes.PodVolume, 0, len(p.volumes))
+		containerStatus = make([]*apitypes.ContainerStatus, 0, len(p.containers))
+	)
+
+	for _, v := range p.volumes {
+		volumes = append(volumes, v.Info())
+	}
+	p.info.Spec.Volumes = volumes
+
+	succeeeded := "Succeeded"
+	for _, c := range p.containers {
+		ci := c.Info()
+		cs := c.InfoStatus()
+		containers = append(containers, ci)
+		containerStatus = append(containerStatus, cs)
+		if cs.Phase == "failed" {
+			succeeeded = "Failed"
+		}
+	}
+	p.info.Spec.Containers = containers
+	p.info.Status.ContainerStatus = containerStatus
+
+	switch p.status {
+	case S_POD_NONE:
+		p.info.Status.Phase = "Pending"
+	case S_POD_STARTING:
+		p.info.Status.Phase = "Pending"
+	case S_POD_RUNNING:
+		p.info.Status.Phase = "Running"
+	case S_POD_PAUSED:
+		p.info.Status.Phase = "Paused"
+	case S_POD_STOPPING:
+		p.info.Status.Phase = "Running"
+	case S_POD_STOPPED:
+		p.info.Status.Phase = succeeeded
+	case S_POD_ERROR:
+		p.info.Status.Phase = "Failed"
+	}
+	if p.status == S_POD_RUNNING && p.sandbox != nil && len(p.info.Status.PodIP) == 0 {
+		p.info.Status.PodIP = p.sandbox.GetIPAddrs()
+	}
+
+	return nil
 }
 
 func (p *XPod) ContainerCreate(c *apitypes.UserContainer) error {

@@ -53,6 +53,14 @@ func (v *Volume) getStatus() VolumeState {
 	return s
 }
 
+func (v *Volume) Info() *apitypes.PodVolume {
+	return &apitypes.PodVolume{
+		Name: v.spec.Name,
+		Source: v.spec.Source,
+		Driver: v.spec.Format,
+	}
+}
+
 // add() try to mount the volume and add it to the sandbox
 func (v *Volume) add() error {
 	changed, err := v.transit(
