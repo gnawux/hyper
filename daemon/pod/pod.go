@@ -297,16 +297,6 @@ func (p *XPod) updatePodInfo() error {
 	return nil
 }
 
-func (p *XPod) ContainerCreate(c *apitypes.UserContainer) error {
-	pc, err := newContainer(p, c, true)
-	if err != nil {
-		return err
-	}
-
-	p.containers[pc.SpecName()] = pc
-	return nil
-}
-
 func (p *XPod) ContainerLogger(id string) logger.Logger {
 	c, ok := p.containers[id]
 	if ok {

@@ -130,6 +130,69 @@ func newXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 	}, nil
 }
 
+func (p *XPod) ContainerCreate(c *apitypes.UserContainer) (string, error) {
+	if !p.IsAlive() {
+		err := fmt.Errorf("pod is not running")
+		p.Log(ERROR, err)
+		return "", err
+	}
+
+	p.resourceLock.Lock()
+	defer p.resourceLock.Unlock()
+
+	pc, err := newContainer(p, c, true)
+	if err != nil {
+		p.Log(ERROR, "failed to create container %s: %v", p.Name, err)
+		return "", err
+	}
+
+	p.containers[pc.Id()] = pc
+
+	vols := pc.volumes()
+	nvs := make([]string, 0, len(vols))
+	for _, vol := range vols {
+		if _, ok := p.volumes[vol.Name]; ok {
+			continue
+		}
+		p.volumes[vol.Name] = newVolume(p, vol)
+		nvs = append(nvs, vol.Name)
+	}
+
+	future := utils.NewFutureSet()
+	for _, vol := range nvs {
+		future.Add(vol, p.volumes[vol].add)
+	}
+	future.Add(pc.Id(), pc.addToSandbox)
+	if err := future.Wait(ProvisionTimeout); err != nil {
+		p.Log(ERROR, "error during add container resources to sandbox: %v", err)
+		return "", err
+	}
+	return pc.Id(), nil
+}
+
+func (p *XPod) ContainerStart(cid string) error {
+	var err error
+	c, ok := p.containers[cid]
+	if !ok {
+		err = fmt.Errorf("container %s not found", cid)
+		p.Log(ERROR, err)
+		return err
+	}
+
+	if c.IsRunning() {
+		c.Log(INFO, "starting a running container")
+		return nil
+	}
+
+	if !p.IsAlive() || c.IsStopped() {
+		err = fmt.Errorf("not ready for start p: %v, c: %v", p.status, c.CurrentState())
+		c.Log(ERROR, err)
+		return err
+	}
+
+	return c.start()
+}
+
 // Start() means start a STOPPED pod.
 func (p *XPod) Start() error {
 
