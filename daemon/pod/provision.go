@@ -386,6 +386,7 @@ func (p *XPod) prepareResources() error {
 			p.Log(ERROR, "PrepareServices failed %v", err)
 			return err
 		}
+		p.globalSpec.Type = "service-discovery"
 	}
 
 	defer func() {

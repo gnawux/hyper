@@ -297,6 +297,10 @@ func (p *XPod) updatePodInfo() error {
 	return nil
 }
 
+func (p *XPod) HasServiceContainer() bool {
+	return p.globalSpec.Type == "service-discovery" || len(p.services) > 0
+}
+
 func (p *XPod) ContainerLogger(id string) logger.Logger {
 	c, ok := p.containers[id]
 	if ok {

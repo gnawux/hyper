@@ -15,7 +15,6 @@ import (
 	"github.com/hyperhq/hyperd/lib/sysinfo"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
-	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
 func (daemon *Daemon) CmdImages(args, filter string, all bool) (*engine.Env, error) {
@@ -387,7 +386,7 @@ func (daemon *Daemon) CmdTtyResize(containerId, execId string, h, w int) error {
 }
 
 func (daemon *Daemon) CmdAddService(podId, data string) (*engine.Env, error) {
-	var srvs []pod.UserService
+	var srvs []*apitypes.UserService
 	err := json.Unmarshal([]byte(data), &srvs)
 	if err != nil {
 		return nil, err
@@ -404,7 +403,7 @@ func (daemon *Daemon) CmdAddService(podId, data string) (*engine.Env, error) {
 }
 
 func (daemon *Daemon) CmdUpdateService(podId, data string) (*engine.Env, error) {
-	var srvs []pod.UserService
+	var srvs []*apitypes.UserService
 	err := json.Unmarshal([]byte(data), &srvs)
 	if err != nil {
 		return nil, err
@@ -421,7 +420,7 @@ func (daemon *Daemon) CmdUpdateService(podId, data string) (*engine.Env, error) 
 }
 
 func (daemon *Daemon) CmdDeleteService(podId, data string) (*engine.Env, error) {
-	var srvs []pod.UserService
+	var srvs []*apitypes.UserService
 	err := json.Unmarshal([]byte(data), &srvs)
 	if err != nil {
 		return nil, err
@@ -437,7 +436,7 @@ func (daemon *Daemon) CmdDeleteService(podId, data string) (*engine.Env, error) 
 	return v, nil
 }
 
-func (daemon *Daemon) CmdGetServices(podId string) ([]pod.UserService, error) {
+func (daemon *Daemon) CmdGetServices(podId string) ([]*apitypes.UserService, error) {
 	return daemon.GetServices(podId)
 }
 
