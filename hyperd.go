@@ -13,7 +13,6 @@ import (
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/daemon"
-	"github.com/hyperhq/hyperd/daemon/graphdriver/vbox"
 	"github.com/hyperhq/hyperd/server"
 	"github.com/hyperhq/hyperd/serverrpc"
 	"github.com/hyperhq/hyperd/utils"
@@ -143,8 +142,6 @@ func mainDaemon(opt *Options) {
 		glog.Errorf("The hyperd create failed, %s", err.Error())
 		return
 	}
-
-	vbox.Register(d)
 
 	serverConfig := &server.Config{}
 
