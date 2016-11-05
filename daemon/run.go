@@ -22,7 +22,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.X
 	}
 
 	if podSpec.Id == "" {
-		podSpec = podId
+		podSpec.Id = podId
 	}
 
 	if _, ok := daemon.PodList.Get(podSpec.Id); ok {
@@ -45,7 +45,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.X
 }
 
 //TODO: remove the tty stream in StartPod API, now we could support attach after created
-func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId, vmId string, attach bool) (int, string, error) {
+func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId string, attach bool) (int, string, error) {
 	p, ok := daemon.PodList.Get(podId)
 	if !ok {
 		return -1, "", fmt.Errorf("The pod(%s) can not be found, please create it first", podId)
@@ -64,7 +64,7 @@ func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId
 		}
 	}
 
-	glog.Infof("pod:%s, vm:%s", podId, vmId)
+	glog.Infof("pod:%s, vm:%s", podId)
 
 	err := p.Start()
 	if err != nil {
@@ -77,6 +77,16 @@ func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId
 	}
 
 	return 0, "", err
+}
+
+func (daemon *Daemon) WaitContainer(cid string, second int) (int, error) {
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(cid)
+	if !ok {
+		return -1, fmt.Errorf("can not find container %s", cid)
+	}
+
+	return p.WaitContainer(id, second)
+
 }
 
 func (daemon *Daemon) SetPodLabels(pn string, override bool, labels map[string]string) error {

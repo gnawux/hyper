@@ -420,6 +420,37 @@ func (p *XPod) TtyResize(cid, execId string, h, w int) error {
 	return p.sandbox.Tty(cid, execId, h, w)
 }
 
+func (p *XPod) WaitContainer(cid string, second int) (int, error) {
+	if !p.IsAlive() {
+		err := fmt.Errorf("only alive container could be attached, current %v", p.status)
+		p.Log(ERROR, err)
+		return -1, err
+	}
+	c, ok := p.containers[cid]
+	if !ok {
+		err := fmt.Errorf("container %s not exist", cid)
+		p.Log(ERROR, err)
+		return -1, err
+	}
+	if c.IsStopped() || !c.IsRunning() {
+		p.Log(DEBUG, "container is already stopped")
+		return 0, nil
+	}
+	ch := p.sandbox.WaitProcess(true, []string{cid}, second)
+	if ch == nil {
+		c.Log(WARNING, "connot wait container, possiblely already down")
+		return -1, nil
+	}
+	r, ok := <-ch
+	if !ok {
+		err := fmt.Errorf("break")
+		c.Log("chan broken while waiting container")
+		return -1, err
+	}
+	c.Log(INFO, "container stopped: %v", r.Code)
+	return r.Code, nil
+}
+
 func (p *XPod) RenameContainer(cid, name string) error {
 	var err error
 	c, ok := p.containers[cid]
