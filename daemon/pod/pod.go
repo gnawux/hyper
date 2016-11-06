@@ -50,29 +50,39 @@ type XPod struct {
 	labels       map[string]string
 	resourceLock *sync.Mutex
 
-	sandbox      *hypervisor.Vm
-	factory      *PodFactory
+	sandbox *hypervisor.Vm
+	factory *PodFactory
 
-	info         *apitypes.PodInfo
-	status       PodState
-	execs        map[string]*Exec
-	statusLock   *sync.RWMutex
-	cleanChan    chan bool
+	info       *apitypes.PodInfo
+	status     PodState
+	execs      map[string]*Exec
+	statusLock *sync.RWMutex
+	cleanChan  chan bool
 }
 
+// The Log infrastructure, to add pod name as prefix of the log message.
+
+// LogPrefix() belongs to the interface `github.com/hyperhq/hyperd/lib/hlog.LogOwner`, which helps `hlog.HLog` get
+// proper prefix from the owner object.
 func (p *XPod) LogPrefix() string {
 	return fmt.Sprintf("Pod[%s] ", p.Name)
 }
 
+// Log() employ `github.com/hyperhq/hyperd/lib/hlog.HLog` to add pod information to the log
 func (p *XPod) Log(level hlog.LogLevel, args ...interface{}) {
 	hlog.HLog(level, p, 1, args...)
 }
 
+// SandboxName() returns the id of the sandbox, the detail of sandbox should be wrapped inside XPod, this method is
+// used for list/display only.
 func (p *XPod) SandboxName() string {
+	var sbn = ""
+	p.statusLock.RLock()
 	if p.sandbox != nil {
-		return p.sandbox.Id
+		sbn =  p.sandbox.Id
 	}
-	return ""
+	p.statusLock.RUnlock()
+	return sbn
 }
 
 func (p *XPod) IsNone() bool {
