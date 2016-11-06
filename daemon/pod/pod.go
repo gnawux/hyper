@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	//The Log level for Pods
 	TRACE   = hlog.TRACE
 	DEBUG   = hlog.DEBUG
 	INFO    = hlog.INFO
@@ -24,22 +25,30 @@ const (
 	ERROR   = hlog.ERROR
 )
 
+// PodState is the state of a Pod/Sandbox. in the current implementation, we assume the sandbox could be spawned fast
+// enough and we don't need to pre-create a sandbox in the Pod view (or say, App view).
 type PodState int32
 
 const (
-	S_POD_NONE PodState = iota // DEFAULT
-	S_POD_STARTING    // vm context exist
-	S_POD_RUNNING     // sandbox inited,
+	S_POD_NONE     PodState = iota // DEFAULT
+	S_POD_STARTING                 // vm context exist
+	S_POD_RUNNING                  // sandbox inited,
 	S_POD_PAUSED
-	S_POD_STOPPED     // vm stopped, no vm associated
-	S_POD_STOPPING    // user initiates a stop/remove pod command
-	S_POD_ERROR       // failed to stop/remove...
+	S_POD_STOPPED  // vm stopped, no vm associated
+	S_POD_STOPPING // user initiates a stop/remove pod command
+	S_POD_ERROR    // failed to stop/remove...
 )
 
+// XPod is the Pod keeper, or, the App View of a sandbox. All API for Pod operations or Container operations should be
+// provided by this struct.
 type XPod struct {
-	Name         string
+	// Name is the unique name of a pod provided by user
+	Name string
 
-	globalSpec   *apitypes.UserPod
+	// FIXME: should we get the pod id back, the problem of id is --- we have to maintain two unique index for pod,
+
+	// globalSpec is the sandbox-wise spec, the stateful resources are not included in this field. see also:
+	globalSpec *apitypes.UserPod
 
 	// stateful resources:
 	containers   map[string]*Container
@@ -204,10 +213,10 @@ func (p *XPod) Info() (*apitypes.PodInfo, error) {
 func (p *XPod) ContainerInfo(cid string) (*apitypes.ContainerInfo, error) {
 	if c, ok := p.containers[cid]; ok {
 		ci := &apitypes.ContainerInfo{
-			PodID: p.Name,
+			PodID:     p.Name,
 			Container: c.Info(),
 			CreatedAt: c.CreatedAt(),
-			Status: c.InfoStatus(),
+			Status:    c.InfoStatus(),
 		}
 		return ci, nil
 	}
@@ -219,7 +228,7 @@ func (p *XPod) ContainerInfo(cid string) (*apitypes.ContainerInfo, error) {
 
 func (p *XPod) Stats() *runvtypes.VmResponse {
 	//use channel, don't block in statusLock
-	ch := make(chan*runvtypes.VmResponse, 1)
+	ch := make(chan *runvtypes.VmResponse, 1)
 
 	p.statusLock.Lock()
 	if p.sandbox == nil {
@@ -227,7 +236,7 @@ func (p *XPod) Stats() *runvtypes.VmResponse {
 	}
 	go func(sb *hypervisor.Vm) {
 		ch <- sb.Stats()
-	} (p.sandbox)
+	}(p.sandbox)
 	p.statusLock.Unlock()
 
 	return <-ch
@@ -236,13 +245,13 @@ func (p *XPod) Stats() *runvtypes.VmResponse {
 func (p *XPod) initPodInfo() {
 
 	info := &apitypes.PodInfo{
-		PodID: p.Name,
-		PodName: p.Name,
-		Kind: "Pod",
-		CreatedAt: time.Now().UTC().Unix(),
+		PodID:      p.Name,
+		PodName:    p.Name,
+		Kind:       "Pod",
+		CreatedAt:  time.Now().UTC().Unix(),
 		ApiVersion: utils.APIVERSION,
 		Spec: &apitypes.PodSpec{
-			Vcpu: p.globalSpec.Resource.Vcpu,
+			Vcpu:   p.globalSpec.Resource.Vcpu,
 			Memory: p.globalSpec.Resource.Memory,
 			Labels: p.labels,
 		},
@@ -261,8 +270,8 @@ func (p *XPod) updatePodInfo() error {
 	defer p.statusLock.Unlock()
 
 	var (
-		containers = make([]*apitypes.Container, 0, len(p.containers))
-		volumes    = make([]*apitypes.PodVolume, 0, len(p.volumes))
+		containers      = make([]*apitypes.Container, 0, len(p.containers))
+		volumes         = make([]*apitypes.PodVolume, 0, len(p.volumes))
 		containerStatus = make([]*apitypes.ContainerStatus, 0, len(p.containers))
 	)
 
