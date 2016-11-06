@@ -63,7 +63,7 @@ func (p *XPod) Stop(graceful int) error {
 			return err
 		},
 		time.Second * time.Duration(graceful),
-		fmt.Sprintf("Stop pod %s", p.Name))
+		"stop pod")
 
 	if err != nil {
 		p.Log(ERROR, "pod stopping failed, transit to error state: %v", err)
@@ -74,13 +74,16 @@ func (p *XPod) Stop(graceful int) error {
 }
 
 func (p *XPod) ForceQuit() {
-	p.protectedSandboxOperation(
+	err := p.protectedSandboxOperation(
 		func(sb *hypervisor.Vm) error {
 			sb.Kill()
 			return nil
 		},
 		time.Second * 5,
-		fmt.Sprintf("Kill pod %s", p.Name))
+		"kill pod")
+	if err != nil {
+		p.Log(ERROR, "force quit failed: %v", err)
+	}
 }
 
 func (p *XPod) Remove(force bool) error {
@@ -108,13 +111,13 @@ func (p *XPod) Remove(force bool) error {
 		return
 	}
 
-	os.RemoveAll(path.Join(utils.HYPER_ROOT, "services", p.Name))
-	os.RemoveAll(path.Join(utils.HYPER_ROOT, "hosts", p.Name))
+	os.RemoveAll(path.Join(utils.HYPER_ROOT, "services", p.Id()))
+	os.RemoveAll(path.Join(utils.HYPER_ROOT, "hosts", p.Id()))
 
 	//TODO get created volumes and remove them
 	//TODO should we remove containers during remove Pod?
 	//TODO should remove items in daemondb:	daemon.db.DeletePod(p.Id)
-	p.factory.registry.Release(p.Name)
+	p.factory.registry.Release(p.Id())
 	return nil
 }
 
@@ -123,7 +126,7 @@ func (p *XPod) Dissociate(retry int) error {
 	defer p.resourceLock.Unlock()
 
 	ret, err := p.sandbox.ReleaseVm()
-	p.factory.registry.Release(p.Name)
+	p.factory.registry.Release(p.Id())
 	for _, c := range p.containers {
 		p.factory.registry.ReleaseContainer(c.Id(), c.SpecName())
 	}
@@ -160,10 +163,10 @@ func (p *XPod) Pause() error {
 			return sb.Pause(true)
 		},
 		time.Second * 5,
-		fmt.Sprintf("Pause pod %s", p.Name))
+		"pause pod")
 
 	if err != nil {
-		p.Log(WARNING, "pause: roll back status from %v", p.status)
+		p.Log(WARNING, "pause: roll back status from %v because of: %v", p.status, err)
 		p.statusLock.Lock()
 		if p.status == S_POD_PAUSED {
 			p.status = S_POD_RUNNING
@@ -190,11 +193,11 @@ func (p *XPod) UnPause() error {
 			return sb.Pause(false)
 		},
 		time.Second * 5,
-		fmt.Sprintf("Pause pod %s", p.Name))
+		"resume pod")
 
 	if err != nil {
 		//TODO, looks not safe we just rollback status here, should we shutdown if unpause failed?
-		p.Log(WARNING, "pause: roll back status from %v", p.status)
+		p.Log(WARNING, "pause: roll back status from %v because of %v", p.status, err)
 		p.statusLock.Lock()
 		if p.status == S_POD_RUNNING {
 			p.status = S_POD_PAUSED

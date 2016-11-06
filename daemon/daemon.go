@@ -96,7 +96,7 @@ func (daemon *Daemon) Restore() error {
 		}
 
 		if glog.V(3) {
-			p.Log(pod.TRACE, "container in pod %s: %v", p.Name, p.ContainerIds())
+			p.Log(pod.TRACE, "containers in pod %s: %v", p.Id(), p.ContainerIds())
 		}
 	}
 
@@ -307,14 +307,6 @@ func (daemon *Daemon) GetVmByPodId(podId string) (string, error) {
 	return p.SandboxName(), nil
 }
 
-func (daemon *Daemon) GetPodByContainer(containerId string) (string, error) {
-	if p, ok := daemon.PodList.GetByContainerId(containerId); ok {
-		return p.Name, nil
-	} else {
-		return "", fmt.Errorf("Can not find that container!")
-	}
-}
-
 func (daemon *Daemon) GetPodByContainerIdOrName(name string) (*pod.XPod, error) {
 	if p, _, ok := daemon.PodList.GetByContainerIdOrName(name); ok {
 		return p, nil
@@ -331,7 +323,7 @@ func (daemon *Daemon) DestroyAllVm() error {
 	})
 	for _, p := range remains {
 		if err := p.Stop(5); err != nil {
-			glog.V(1).Infof("fail to stop %s: %v", p.Name, err)
+			glog.V(1).Infof("fail to stop %s: %v", p.Id(), err)
 		}
 	}
 	return nil

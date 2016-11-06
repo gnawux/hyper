@@ -96,7 +96,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			if vm == "" {
 				continue
 			}
-			vmJsonResponse = append(vmJsonResponse, vm+":"+p.Name+":"+p.SandboxStatusString())
+			vmJsonResponse = append(vmJsonResponse, p.SandboxStatusString())
 		case "pod":
 			podJsonResponse = append(podJsonResponse, p.StatusString())
 		case "container":

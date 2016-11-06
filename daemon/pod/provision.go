@@ -116,7 +116,8 @@ func newXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 	factory.hosts = HostsCreator(spec.Id)
 	factory.logCreator = initLogCreator(factory, spec)
 	return &XPod{
-		Name:         spec.Id,
+		name:         spec.Id,
+		logPrefix:    fmt.Sprintf("Pod[%s] ", spec.Id),
 		globalSpec:   spec.CloneGlobalPart(),
 		containers:   make(map[string]*Container),
 		volumes:      make(map[string]*Volume),
@@ -142,7 +143,7 @@ func (p *XPod) ContainerCreate(c *apitypes.UserContainer) (string, error) {
 
 	pc, err := newContainer(p, c, true)
 	if err != nil {
-		p.Log(ERROR, "failed to create container %s: %v", p.Name, err)
+		p.Log(ERROR, "failed to create container %s: %v", c.Name, err)
 		return "", err
 	}
 
@@ -216,7 +217,7 @@ func (p *XPod) Start() error {
 			return err
 		}
 	} else {
-		err := fmt.Errorf("%s, not in proper status and could not be started: %v", p.Name, p.status)
+		err := fmt.Errorf("not in proper status and could not be started: %v", p.status)
 		p.Log(ERROR, err)
 		return err
 	}
@@ -311,7 +312,7 @@ func (p *XPod) reserveNames(containers []*apitypes.UserContainer) error {
 		return err
 	}
 	for _, c := range containers {
-		if err = p.factory.registry.ReserveContainer(c.Id, c.Name, p.Name); err != nil {
+		if err = p.factory.registry.ReserveContainer(c.Id, c.Name, p.Id()); err != nil {
 			p.Log(ERROR, err)
 			return err
 		}
@@ -324,7 +325,7 @@ func (p *XPod) releaseNames(containers []*apitypes.UserContainer) {
 	for _, c := range containers {
 		p.factory.registry.ReleaseContainer(c.Id, c.Name)
 	}
-	p.factory.registry.Release(p.Name)
+	p.factory.registry.Release(p.Id())
 }
 
 // initResources() will create volumes, insert files etc. if needed.
@@ -337,7 +338,7 @@ func (p *XPod) releaseNames(containers []*apitypes.UserContainer) {
 // This function will do resource op and update the spec. and won't
 // access sandbox.
 func (p *XPod) initResources(spec *apitypes.UserPod, allowCreate bool) error {
-	if sc := ParseServiceDiscovery(p.Name, spec); sc != nil {
+	if sc := ParseServiceDiscovery(p.Id(), spec); sc != nil {
 		spec.Containers = append([]*apitypes.UserContainer{sc}, spec.Containers...)
 	}
 
@@ -382,7 +383,7 @@ func (p *XPod) prepareResources() error {
 
 	// gernerate service discovery config
 	if len(p.services) > 0 {
-		if err = servicediscovery.PrepareServices(p.services, p.Name); err != nil {
+		if err = servicediscovery.PrepareServices(p.services, p.Id()); err != nil {
 			p.Log(ERROR, "PrepareServices failed %v", err)
 			return err
 		}

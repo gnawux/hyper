@@ -43,12 +43,15 @@ const (
 // provided by this struct.
 type XPod struct {
 	// Name is the unique name of a pod provided by user
-	Name string
+	name         string
+
+	// logPrefix is the prefix for log message
+	logPrefix    string
 
 	// FIXME: should we get the pod id back, the problem of id is --- we have to maintain two unique index for pod,
 
 	// globalSpec is the sandbox-wise spec, the stateful resources are not included in this field. see also:
-	globalSpec *apitypes.UserPod
+	globalSpec   *apitypes.UserPod
 
 	// stateful resources:
 	containers   map[string]*Container
@@ -74,12 +77,20 @@ type XPod struct {
 // LogPrefix() belongs to the interface `github.com/hyperhq/hyperd/lib/hlog.LogOwner`, which helps `hlog.HLog` get
 // proper prefix from the owner object.
 func (p *XPod) LogPrefix() string {
-	return fmt.Sprintf("Pod[%s] ", p.Name)
+	return p.logPrefix
 }
 
 // Log() employ `github.com/hyperhq/hyperd/lib/hlog.HLog` to add pod information to the log
 func (p *XPod) Log(level hlog.LogLevel, args ...interface{}) {
 	hlog.HLog(level, p, 1, args...)
+}
+
+func (p *XPod) Id() string {
+	return p.name
+}
+
+func (p *XPod) Name() string {
+	return p.name
 }
 
 // SandboxName() returns the id of the sandbox, the detail of sandbox should be wrapped inside XPod, this method is
@@ -163,7 +174,7 @@ func (p *XPod) StatusString() string {
 	}
 	p.statusLock.RUnlock()
 
-	return strings.Join([]string{p.Name, sbn, status}, ":")
+	return strings.Join([]string{p.Id(), sbn, status}, ":")
 }
 
 func (p *XPod) SandboxStatusString() string {
@@ -175,6 +186,7 @@ func (p *XPod) SandboxStatusString() string {
 		} else {
 			status = "associated"
 		}
+		status = strings.Join([]string{p.sandbox.Id,p.Id(),status},":")
 	}
 	p.statusLock.RUnlock()
 	return status
@@ -213,7 +225,7 @@ func (p *XPod) Info() (*apitypes.PodInfo, error) {
 func (p *XPod) ContainerInfo(cid string) (*apitypes.ContainerInfo, error) {
 	if c, ok := p.containers[cid]; ok {
 		ci := &apitypes.ContainerInfo{
-			PodID:     p.Name,
+			PodID:     p.Id(),
 			Container: c.Info(),
 			CreatedAt: c.CreatedAt(),
 			Status:    c.InfoStatus(),
@@ -245,8 +257,8 @@ func (p *XPod) Stats() *runvtypes.VmResponse {
 func (p *XPod) initPodInfo() {
 
 	info := &apitypes.PodInfo{
-		PodID:      p.Name,
-		PodName:    p.Name,
+		PodID:      p.Id(),
+		PodName:    p.Name(),
 		Kind:       "Pod",
 		CreatedAt:  time.Now().UTC().Unix(),
 		ApiVersion: utils.APIVERSION,
@@ -479,7 +491,7 @@ func (p *XPod) RenameContainer(cid, name string) error {
 		return err
 	}
 	old := c.SpecName()
-	err = p.factory.registry.ReserveContainerName(name, p.Name)
+	err = p.factory.registry.ReserveContainerName(name, p.Id())
 	if err != nil {
 		c.Log(ERROR, "failed to reserve new name during rename: %v", err)
 		return err

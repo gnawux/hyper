@@ -37,7 +37,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.X
 
 	p, err := pod.CreateXPod(factory, podSpec)
 	if err != nil {
-		glog.Errorf("%s: failed to add pod: %v", p.Name, err)
+		glog.Errorf("%s: failed to add pod: %v", podSpec.Id, err)
 		return nil, err
 	}
 
@@ -68,7 +68,7 @@ func (daemon *Daemon) StartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId
 
 	err := p.Start()
 	if err != nil {
-		glog.Info("%s, failed to  start pod: %v", p.Name, err)
+		glog.Infof("failed to  start pod %s: %v", p.Id(), err)
 		return -1, err.Error(), err
 	}
 

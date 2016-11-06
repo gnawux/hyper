@@ -69,10 +69,10 @@ func (pl *PodList) ReservePod(p *XPod) error {
 	pl.mu.Lock()
 	defer pl.mu.Unlock()
 
-	name := p.Name
+	name := p.Id()
 	// check availability
 	if pe, ok := pl.pods[name]; ok && pe != p {
-		return fmt.Errorf("pod name %s has already in use", p.Name)
+		return fmt.Errorf("pod name %s has already in use", p.Id())
 	}
 
 	pl.pods[name] = p

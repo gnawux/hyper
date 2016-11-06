@@ -319,7 +319,7 @@ func (c *Container) StatusString() string {
 	}
 	c.status.RUnlock()
 
-	return strings.Join([]string{c.Id(), c.SpecName(), c.p.Name, status}, ":")
+	return strings.Join([]string{c.Id(), c.SpecName(), c.p.Id(), status}, ":")
 }
 
 func (c *Container) HasTty() bool {
@@ -454,7 +454,7 @@ func (c *Container) createByEngine() (*dockertypes.ContainerJSON, error) {
 	}
 
 	if rsp, ok = r.(*dockertypes.ContainerJSON); !ok {
-		err = fmt.Errorf("fail to unpack container json response for %s of %s", c.spec.Name, c.p.Name)
+		err = fmt.Errorf("fail to unpack container json response for %s of %s", c.spec.Name, c.p.Id())
 		return nil, err
 	}
 
@@ -612,7 +612,7 @@ func (c *Container) configEtcHosts() {
 		}
 	}
 
-	_, hostsVolumePath = HostsPath(c.p.Name)
+	_, hostsVolumePath = HostsPath(c.p.Id())
 
 	vol := &apitypes.UserVolume{
 		Name:   hostsVolumeName,
@@ -640,7 +640,7 @@ func (c *Container) createVolumes() error {
 	defer func() {
 		if err != nil {
 			for _, v := range created {
-				c.p.factory.sd.RemoveVolume(c.p.Name, v)
+				c.p.factory.sd.RemoveVolume(c.p.Id(), v)
 			}
 		}
 	}()
@@ -651,7 +651,7 @@ func (c *Container) createVolumes() error {
 		}
 		c.Log(INFO, "create volume %s", v.Volume)
 
-		err = c.p.factory.sd.CreateVolume(c.p.Name, v.Detail)
+		err = c.p.factory.sd.CreateVolume(c.p.Id(), v.Detail)
 		if err != nil {
 			c.Log(ERROR, "failed to create volume %s: %v", v.Volume, err)
 			return err
@@ -678,7 +678,7 @@ func (c *Container) createVolumes() error {
 func (c *Container) configDNS() {
 	var (
 		resolvconf = "/etc/resolv.conf"
-		fileId     = c.p.Name + "-resolvconf"
+		fileId     = c.p.Id() + "-resolvconf"
 	)
 
 	if len(c.p.globalSpec.Dns) > 0 {
@@ -724,7 +724,7 @@ func (c *Container) injectFiles() error {
 	}
 
 	var (
-		sharedDir = filepath.Join(hypervisor.BaseDir, c.p.Name, hypervisor.ShareDirTag)
+		sharedDir = filepath.Join(hypervisor.BaseDir, c.p.Id(), hypervisor.ShareDirTag)
 	)
 
 	for _, f := range c.spec.Files {
@@ -851,7 +851,7 @@ func (c *Container) initLogger() {
 	if c.p.factory.logCfg.Type == jsonfilelog.Name {
 		prefix := c.p.factory.logCfg.PathPrefix
 		if c.p.factory.logCfg.PodIdInPath {
-			prefix = filepath.Join(prefix, c.p.Name)
+			prefix = filepath.Join(prefix, c.p.Id())
 		}
 		if err := os.MkdirAll(prefix, os.FileMode(0755)); err != nil {
 			c.Log(ERROR, "cannot create container log dir %s: %v", prefix, err)
@@ -867,7 +867,7 @@ func (c *Container) initLogger() {
 		return
 	}
 	c.logger.Driver = driver
-	c.Log(DEBUG, "configured logger for %s/%s (%s)", c.p.Name, c.Id(), c.RuntimeName())
+	c.Log(DEBUG, "container logger configured")
 
 	return
 }
