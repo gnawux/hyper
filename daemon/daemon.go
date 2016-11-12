@@ -10,8 +10,8 @@ import (
 
 	"github.com/hyperhq/hyperd/daemon/daemondb"
 	"github.com/hyperhq/hyperd/daemon/pod"
+	apitypes "github.com/hyperhq/hyperd/types"
 
-	"github.com/Unknwon/goconfig"
 	docker "github.com/docker/docker/daemon"
 	"github.com/docker/docker/daemon/logger/jsonfilelog"
 	"github.com/docker/docker/opts"
@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/registry"
 	dockerutils "github.com/docker/docker/utils"
 	"github.com/golang/glog"
-	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/factory"
 )
@@ -103,7 +102,7 @@ func (daemon *Daemon) Restore() error {
 	return nil
 }
 
-func NewDaemon(cfg *goconfig.ConfigFile) (*Daemon, error) {
+func NewDaemon(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	daemon, err := NewDaemonFromDirectory(cfg)
 	if err != nil {
 		return nil, err
@@ -111,20 +110,7 @@ func NewDaemon(cfg *goconfig.ConfigFile) (*Daemon, error) {
 	return daemon, nil
 }
 
-func NewDaemonFromDirectory(cfg *goconfig.ConfigFile) (*Daemon, error) {
-	kernel, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Kernel")
-	initrd, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Initrd")
-	glog.V(0).Infof("The config: kernel=%s, initrd=%s", kernel, initrd)
-	vboxImage, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Vbox")
-	glog.V(0).Infof("The config: vbox image=%s", vboxImage)
-	biface, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Bridge")
-	bridgeip, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "BridgeIP")
-	glog.V(0).Infof("The config: bridge=%s, ip=%s", biface, bridgeip)
-	bios, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Bios")
-	cbfs, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Cbfs")
-	glog.V(0).Infof("The config: bios=%s, cbfs=%s", bios, cbfs)
-	host, _ := cfg.GetValue(goconfig.DEFAULT_SECTION, "Host")
-
+func NewDaemonFromDirectory(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	var tempdir = path.Join(utils.HYPER_ROOT, "run")
 	os.Setenv("TMPDIR", tempdir)
 	if err := os.MkdirAll(tempdir, 0755); err != nil && !os.IsExist(err) {
@@ -148,15 +134,15 @@ func NewDaemonFromDirectory(cfg *goconfig.ConfigFile) (*Daemon, error) {
 	daemon := &Daemon{
 		ID:          fmt.Sprintf("%d", os.Getpid()),
 		db:          db,
-		Kernel:      kernel,
-		Initrd:      initrd,
-		Bios:        bios,
-		Cbfs:        cbfs,
-		VboxImage:   vboxImage,
+		Kernel:      cfg.Kernel,
+		Initrd:      cfg.Initrd,
+		Bios:        "",
+		Cbfs:        "",
+		VboxImage:   "",
 		PodList:     pod.NewPodList(),
-		Host:        host,
-		BridgeIP:    bridgeip,
-		BridgeIface: biface,
+		Host:        cfg.Host,
+		BridgeIP:    cfg.BridgeIP,
+		BridgeIface: cfg.Bridge,
 	}
 
 	daemon.Daemon, err = docker.NewDaemon(dockerCfg, registryCfg)
