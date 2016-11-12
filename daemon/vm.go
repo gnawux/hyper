@@ -1,13 +1,11 @@
 package daemon
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/daemon/pod"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 func (daemon *Daemon) ReleaseAllVms() error {
@@ -16,7 +14,7 @@ func (daemon *Daemon) ReleaseAllVms() error {
 	)
 
 	err = daemon.PodList.Foreach(func(p *pod.XPod) error {
-		return p.Dissociate(0)
+		return p.Dissociate()
 	})
 
 	return err
@@ -69,19 +67,4 @@ func (daemon *Daemon) StartVm(vmId string, cpu, mem int, lazy bool) (vm *hypervi
 		vm, err = daemon.Factory.GetVm(cpu, mem)
 	}
 	return vm, err
-}
-
-func (daemon *Daemon) WaitVmStart(vm *hypervisor.Vm) error {
-	Status, err := vm.GetResponseChan()
-	if err != nil {
-		return err
-	}
-	defer vm.ReleaseResponseChan(Status)
-
-	vmResponse := <-Status
-	glog.V(1).Infof("Get the response from VM, VM id is %s, response code is %d!", vmResponse.VmId, vmResponse.Code)
-	if vmResponse.Code != types.E_VM_RUNNING {
-		return fmt.Errorf("Vbox does not start successfully")
-	}
-	return nil
 }

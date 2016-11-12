@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/hyperd/utils"
-	runvtypes "github.com/hyperhq/runv/hypervisor/types"
 )
 
 type sandboxOp func(sb *hypervisor.Vm) error
@@ -121,28 +120,18 @@ func (p *XPod) Remove(force bool) error {
 	return nil
 }
 
-func (p *XPod) Dissociate(retry int) error {
+func (p *XPod) Dissociate() error {
 	p.resourceLock.Lock()
 	defer p.resourceLock.Unlock()
 
-	ret, err := p.sandbox.ReleaseVm()
+	err := dissociateSandbox(p.sandbox, 0)
 	p.factory.registry.Release(p.Id())
 	for _, c := range p.containers {
 		p.factory.registry.ReleaseContainer(c.Id(), c.SpecName())
 	}
 	if err != nil {
-		p.Log(ERROR, "failed to release vm (%v): %v", ret, err)
-		if ret != runvtypes.E_BUSY {
-			return err
-		} else {
-			if retry < 3 {
-				time.AfterFunc(100*time.Millisecond, func(){
-					if p != nil {
-						p.Dissociate(retry+1)
-					}
-				})
-			}
-		}
+		p.Log(ERROR, "failed to release vm: %v", err)
+		return err
 	}
 	return nil
 }

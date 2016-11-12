@@ -19,8 +19,8 @@ const (
 	ERROR
 )
 
-func Log(level LogLevel, format string, args ...interface{}) {
-	HLog(level, nil, 1, format, args...)
+func Log(level LogLevel, args ...interface{}) {
+	HLog(level, nil, 1, args...)
 }
 
 func HLog(level LogLevel, owner interface{}, depth int, args ...interface{}) {
