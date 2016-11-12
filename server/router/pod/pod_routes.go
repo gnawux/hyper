@@ -69,13 +69,9 @@ func (p *podRouter) postPodCreate(ctx context.Context, w http.ResponseWriter, r 
 	}
 
 	podArgs, _ := ioutil.ReadAll(r.Body)
-	autoRemove := false
-	if r.Form.Get("remove") == "yes" || r.Form.Get("remove") == "true" {
-		autoRemove = true
-	}
-	glog.V(1).Infof("Args string is %s, autoremove %v", string(podArgs), autoRemove)
+	glog.V(1).Infof("Args string is %s", string(podArgs))
 
-	env, err := p.backend.CmdCreatePod(string(podArgs), autoRemove)
+	env, err := p.backend.CmdCreatePod(string(podArgs))
 	if err != nil {
 		return err
 	}

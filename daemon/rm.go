@@ -2,13 +2,8 @@ package daemon
 
 import (
 	"fmt"
-	"os"
-	"path"
 
-	dockertypes "github.com/docker/engine-api/types"
 	"github.com/golang/glog"
-	"github.com/hyperhq/hyperd/utils"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 const (

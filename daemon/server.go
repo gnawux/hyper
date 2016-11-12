@@ -229,7 +229,7 @@ func (daemon *Daemon) CmdSetPodLabels(podId string, override bool, labels map[st
 }
 
 func (daemon *Daemon) CmdStartPod(stdin io.ReadCloser, stdout io.WriteCloser, podId, vmId string, attach bool) (*engine.Env, error) {
-	code, cause, err := daemon.StartPod(stdin, stdout, podId, vmId, attach)
+	code, cause, err := daemon.StartPod(stdin, stdout, podId, attach)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (daemon *Daemon) CmdStartPod(stdin io.ReadCloser, stdout io.WriteCloser, po
 }
 
 //FIXME: there was a `config` argument passed by docker/builder, but we never processed it.
-func (daemon *Daemon) CmdCreatePod(podArgs string, autoremove bool) (*engine.Env, error) {
+func (daemon *Daemon) CmdCreatePod(podArgs string) (*engine.Env, error) {
 	var podSpec apitypes.UserPod
 	err := json.Unmarshal([]byte(podArgs), &podSpec)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 type Backend interface {
 	CmdGetPodInfo(podName string) (interface{}, error)
 	CmdGetPodStats(podId string) (interface{}, error)
-	CmdCreatePod(podArgs string, autoremove bool) (*engine.Env, error)
+	CmdCreatePod(podArgs string) (*engine.Env, error)
 	CmdSetPodLabels(podId string, override bool, labels map[string]string) (*engine.Env, error)
 	CmdStartPod(in io.ReadCloser, out io.WriteCloser, podId, vmId string, attach bool) (*engine.Env, error)
 	CmdPausePod(podId string) error
