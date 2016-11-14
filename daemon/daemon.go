@@ -323,6 +323,18 @@ func (daemon *Daemon) DestroyAndKeepVm() error {
 	return nil
 }
 
+func (daemon *Daemon) ReleaseAllVms() error {
+	var (
+		err error = nil
+	)
+
+	err = daemon.PodList.Foreach(func(p *pod.XPod) error {
+		return p.Dissociate()
+	})
+
+	return err
+}
+
 func (daemon *Daemon) Shutdown() error {
 	glog.V(0).Info("The daemon will be shutdown")
 	glog.V(0).Info("Shutdown all VMs")
