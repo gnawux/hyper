@@ -21,6 +21,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/factory"
+	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/driverloader"
 )
 
 var (
@@ -33,11 +35,6 @@ type Daemon struct {
 	db          *daemondb.DaemonDB
 	PodList     *pod.PodList
 	Factory     factory.Factory
-	Kernel      string
-	Initrd      string
-	Bios        string
-	Cbfs        string
-	VboxImage   string
 	BridgeIface string
 	BridgeIP    string
 	Host        string
@@ -103,14 +100,6 @@ func (daemon *Daemon) Restore() error {
 }
 
 func NewDaemon(cfg *apitypes.HyperConfig) (*Daemon, error) {
-	daemon, err := NewDaemonFromDirectory(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return daemon, nil
-}
-
-func NewDaemonFromDirectory(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	var tempdir = path.Join(utils.HYPER_ROOT, "run")
 	os.Setenv("TMPDIR", tempdir)
 	if err := os.MkdirAll(tempdir, 0755); err != nil && !os.IsExist(err) {
@@ -134,11 +123,6 @@ func NewDaemonFromDirectory(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	daemon := &Daemon{
 		ID:          fmt.Sprintf("%d", os.Getpid()),
 		db:          db,
-		Kernel:      cfg.Kernel,
-		Initrd:      cfg.Initrd,
-		Bios:        "",
-		Cbfs:        "",
-		VboxImage:   "",
 		PodList:     pod.NewPodList(),
 		Host:        cfg.Host,
 		BridgeIP:    cfg.BridgeIP,
@@ -161,6 +145,11 @@ func NewDaemonFromDirectory(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	}
 	daemon.Storage = stor
 	daemon.Storage.Init()
+
+	daemon.initRunV(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	return daemon, nil
 }
@@ -215,6 +204,24 @@ func InitDockerCfg(mirrors []string, insecureRegistries []string, graphdriver, r
 	}
 
 	registryCfg = registry.NewService(registryOpts)
+}
+
+func (daemon *Daemon) initRunV(c *apitypes.HyperConfig) error {
+	var (
+		err error
+	)
+
+	if hypervisor.HDriver, err = driverloader.Probe(c.Driver); err != nil {
+		glog.Warningf("%s", err.Error())
+		glog.Errorf("Please specify the correct and available hypervisor, such as 'kvm', 'qemu-kvm',  'libvirt', 'xen', 'qemu', or ''")
+		return err
+	}
+
+	daemon.Hypervisor = c.Driver
+	glog.Infof("The hypervisor's driver is %s", c.Driver)
+	daemon.Factory = factory.NewFromPolicy(c.Kernel, c.Initrd, c.VmFactoryPolicy)
+
+	return nil
 }
 
 func (daemon *Daemon) DefaultLogCfg(driver string, cfg map[string]string) {

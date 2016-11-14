@@ -16,8 +16,6 @@ import (
 	"github.com/hyperhq/hyperd/serverrpc"
 	"github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
-	"github.com/hyperhq/runv/driverloader"
-	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 
 	"github.com/docker/docker/pkg/parsers/kernel"
@@ -105,6 +103,7 @@ func mainDaemon(opt *Options) {
 	if c == nil {
 		return
 	}
+	c.DisableIptables == c.DisableIptables || opt.DisableIptables
 
 	c.AdvertiseEnv()
 	if _, err := os.Stat(c.Root); err != nil {
@@ -121,17 +120,6 @@ func mainDaemon(opt *Options) {
 		return
 	}
 
-	if hypervisor.HDriver, err = driverloader.Probe(c.Driver); err != nil {
-		glog.Warningf("%s", err.Error())
-		glog.Errorf("Please specify the correct and available hypervisor, such as 'kvm', 'qemu-kvm',  'libvirt', 'xen', 'qemu', 'vbox' or ''")
-		return
-	} else {
-		d.Hypervisor = c.Driver
-		glog.Infof("The hypervisor's driver is %s", c.Driver)
-	}
-	d.Factory = factory.NewFromPolicy(d.Kernel, d.Initrd, c.VmFactoryPolicy)
-
-	c.DisableIptables == c.DisableIptables || opt.DisableIptables
 	if err = hypervisor.InitNetwork(d.BridgeIface, d.BridgeIP, c.DisableIptables); err != nil {
 		glog.Errorf("InitNetwork failed, %s", err.Error())
 		return
