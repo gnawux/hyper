@@ -11,13 +11,8 @@ import (
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	runv "github.com/hyperhq/runv/api"
-	"github.com/hyperhq/runv/hypervisor"
+	"github.com/hyperhq/runv/factory"
 )
-
-type RuntimeFactory interface {
-	StartSandbox(cpu, mem int) (*hypervisor.Vm, error)
-	AssociateSandbox(id string) (*hypervisor.Vm, error)
-}
 
 type ContainerEngine interface {
 	ContainerCreate(params dockertypes.ContainerCreateConfig) (dockertypes.ContainerCreateResponse, error)
@@ -46,7 +41,7 @@ type PodFactory struct {
 	sd         PodStorage
 	registry   *PodList
 	engine     ContainerEngine
-	runtime    RuntimeFactory
+	vmFactory  factory.Factory
 	hosts      *utils.Initializer
 	logCfg     *GlobalLogConfig
 	logCreator logger.Creator
@@ -58,13 +53,13 @@ type LogStatus struct {
 	LogPath string
 }
 
-func NewPodFactory(sd PodStorage, eng ContainerEngine, rt RuntimeFactory, logCfg *GlobalLogConfig) *PodFactory {
+func NewPodFactory(vmFactory factory.Factory, sd PodStorage, eng ContainerEngine, logCfg *GlobalLogConfig) *PodFactory {
 	return &PodFactory{
-		sd: sd,
-		engine: eng,
-		runtime: rt,
-		hosts: nil,
-		logCfg: logCfg,
+		sd:        sd,
+		engine:    eng,
+		vmFactory: vmFactory,
+		hosts:     nil,
+		logCfg:    logCfg,
 	}
 }
 

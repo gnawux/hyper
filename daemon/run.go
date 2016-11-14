@@ -33,7 +33,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.X
 		return err
 	}
 
-	factory := pod.NewPodFactory(daemon.Storage, daemon.Daemon, daemon, daemon.DefaultLog)
+	factory := pod.NewPodFactory(daemon.Factory, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
 
 	p, err := pod.CreateXPod(factory, podSpec)
 	if err != nil {

@@ -226,7 +226,8 @@ func (p *XPod) Start() error {
 }
 
 func (p *XPod) createSandbox(spec *apitypes.UserPod) error {
-	sandbox, err := p.factory.runtime.StartSandbox(spec.Resource.Vcpu, spec.Resource.Memory)
+	//in the future, here
+	sandbox, err := startSandbox(p.factory.vmFactory, spec.Resource.Vcpu, spec.Resource.Memory, "", "")
 	if err != nil {
 		p.Log(ERROR, err)
 		return err
@@ -258,7 +259,7 @@ func (p *XPod) reconnectSandbox(sandboxId string) error {
 	)
 
 	if sandboxId != "" {
-		sandbox, err = p.factory.runtime.AssociateSandbox(sandboxId)
+		sandbox, err = associateSandbox(sandboxId)
 		if err != nil {
 			p.Log(ERROR, err)
 			sandbox = nil
