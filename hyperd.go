@@ -16,7 +16,6 @@ import (
 	"github.com/hyperhq/hyperd/serverrpc"
 	"github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
-	"github.com/hyperhq/runv/hypervisor"
 
 	"github.com/docker/docker/pkg/parsers/kernel"
 )
@@ -119,13 +118,6 @@ func mainDaemon(opt *Options) {
 		glog.Errorf("The hyperd create failed, %s", err.Error())
 		return
 	}
-
-	if err = hypervisor.InitNetwork(d.BridgeIface, d.BridgeIP, c.DisableIptables); err != nil {
-		glog.Errorf("InitNetwork failed, %s", err.Error())
-		return
-	}
-
-	d.DefaultLogCfg(c.DefaultLog, c.DefaultLogOpt)
 
 	// Set the daemon object as the global varibal
 	// which will be used for puller and builder

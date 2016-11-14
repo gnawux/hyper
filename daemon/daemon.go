@@ -35,8 +35,6 @@ type Daemon struct {
 	db          *daemondb.DaemonDB
 	PodList     *pod.PodList
 	Factory     factory.Factory
-	BridgeIface string
-	BridgeIP    string
 	Host        string
 	Storage     Storage
 	Hypervisor  string
@@ -125,8 +123,6 @@ func NewDaemon(cfg *apitypes.HyperConfig) (*Daemon, error) {
 		db:          db,
 		PodList:     pod.NewPodList(),
 		Host:        cfg.Host,
-		BridgeIP:    cfg.BridgeIP,
-		BridgeIface: cfg.Bridge,
 	}
 
 	daemon.Daemon, err = docker.NewDaemon(dockerCfg, registryCfg)
@@ -146,10 +142,17 @@ func NewDaemon(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	daemon.Storage = stor
 	daemon.Storage.Init()
 
-	daemon.initRunV(cfg)
+	err = daemon.initRunV(cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	err = daemon.initNetworks(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	daemon.initDefaultLog(cfg)
 
 	return daemon, nil
 }
@@ -224,7 +227,20 @@ func (daemon *Daemon) initRunV(c *apitypes.HyperConfig) error {
 	return nil
 }
 
-func (daemon *Daemon) DefaultLogCfg(driver string, cfg map[string]string) {
+func (daemon *Daemon) initNetworks(c *apitypes.HyperConfig) error {
+	if err := hypervisor.InitNetwork(c.Bridge, c.BridgeIP, c.DisableIptables); err != nil {
+		glog.Errorf("InitNetwork failed, %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (daemon *Daemon) initDefaultLog(c *apitypes.HyperConfig) {
+	var (
+		driver = c.DefaultLog
+		cfg    = c.DefaultLogOpt
+	)
+
 	if driver == "" {
 		driver = jsonfilelog.Name
 	}
