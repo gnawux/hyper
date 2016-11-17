@@ -17,9 +17,8 @@ import (
 	"unsafe"
 
 	"github.com/golang/glog"
+	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network/iptables"
-	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -889,7 +888,7 @@ func Modprobe(module string) error {
 	return nil
 }
 
-func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
+func SetupPortMaps(containerip string, maps []*api.PortDescription) error {
 	if disableIptables || len(maps) == 0 {
 		return nil
 	}
@@ -937,7 +936,7 @@ func SetupPortMaps(containerip string, maps []pod.UserContainerPort) error {
 	return nil
 }
 
-func ReleasePortMaps(containerip string, maps []pod.UserContainerPort) error {
+func ReleasePortMaps(containerip string, maps []*api.PortDescription) error {
 	if disableIptables || len(maps) == 0 {
 		return nil
 	}
@@ -996,11 +995,65 @@ func UpAndAddToBridge(name string) error {
 	return nil
 }
 
-func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerPort) (*Settings, error) {
+func GetTapFd(tapname, bridge string) (device string, tapFile *os.File, err error) {
 	var (
 		req   ifReq
 		errno syscall.Errno
 	)
+
+	tapFile, err = os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	if err != nil {
+		return "", nil, err
+	}
+
+	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
+	if tapname != "" {
+		copy(req.Name[:len(req.Name)-1], []byte(tapname))
+	}
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
+		uintptr(syscall.TUNSETIFF),
+		uintptr(unsafe.Pointer(&req)))
+	if errno != 0 {
+		err = fmt.Errorf("create tap device failed\n")
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	device = strings.Trim(string(req.Name[:]), "\x00")
+
+	tapIface, err := net.InterfaceByName(device)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed %s", device, err)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	bIface, err := net.InterfaceByName(bridge)
+	if err != nil {
+		glog.Errorf("get interface by name %s failed", bridge)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	err = AddToBridge(tapIface, bIface)
+	if err != nil {
+		glog.Errorf("Add to bridge failed %s %s", bridge, device)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	err = NetworkLinkUp(tapIface)
+	if err != nil {
+		glog.Errorf("Link up device %s failed", device)
+		tapFile.Close()
+		return "", nil, err
+	}
+
+	return device, tapFile, nil
+
+}
+
+func AllocateAddr(requestedIP string) (*Settings, error) {
 
 	ip, err := IpAllocator.RequestIP(BridgeIPv4Net, net.ParseIP(requestedIP))
 	if err != nil {
@@ -1015,105 +1068,63 @@ func Allocate(vmId, requestedIP string, addrOnly bool, maps []pod.UserContainerP
 		return nil, err
 	}
 
-	err = SetupPortMaps(ip.String(), maps)
-	if err != nil {
-		glog.Errorf("Setup Port Map failed %s", err)
-		return nil, err
-	}
-
-	if addrOnly {
-		return &Settings{
-			Mac:         mac,
-			IPAddress:   ip.String(),
-			Gateway:     BridgeIPv4Net.IP.String(),
-			Bridge:      BridgeIface,
-			IPPrefixLen: maskSize,
-			Device:      "",
-			File:        nil,
-			Automatic:   true,
-		}, nil
-	}
-
-	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
-		uintptr(syscall.TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)))
-	if errno != 0 {
-		err = fmt.Errorf("create tap device failed\n")
-		tapFile.Close()
-		return nil, err
-	}
-
-	device := strings.Trim(string(req.Name[:]), "\x00")
-
-	tapIface, err := net.InterfaceByName(device)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed %s", device, err)
-		tapFile.Close()
-		return nil, err
-	}
-
-	bIface, err := net.InterfaceByName(BridgeIface)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", BridgeIface)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = AddToBridge(tapIface, bIface)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = NetworkLinkUp(tapIface)
-	if err != nil {
-		glog.Errorf("Link up device %s failed", device)
-		tapFile.Close()
-		return nil, err
-	}
-
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
 		Gateway:     BridgeIPv4Net.IP.String(),
 		Bridge:      BridgeIface,
 		IPPrefixLen: maskSize,
-		Device:      device,
-		File:        tapFile,
+		Device:      "",
+		File:        nil,
 		Automatic:   true,
 	}, nil
 }
 
-func Configure(vmId, requestedIP string, addrOnly bool,
-	maps []pod.UserContainerPort, config pod.UserInterface) (*Settings, error) {
-	var (
-		req   ifReq
-		errno syscall.Errno
-	)
+func Allocate(vmId, requestedIP string, addrOnly bool) (*Settings, error) {
 
-	ip, ipnet, err := net.ParseCIDR(config.Ip)
+	setting, err := AllocateAddr(requestedIP)
+	if err != nil {
+		return nil, err
+	}
+
+
+	//TODO: will move to a dedicate method
+	//err = SetupPortMaps(ip.String(), maps)
+	//if err != nil {
+	//	glog.Errorf("Setup Port Map failed %s", err)
+	//	return nil, err
+	//}
+
+	device, tapFile, err := GetTapFd("", BridgeIface)
+	if err != nil {
+		IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(setting.IPAddress))
+		return nil, err
+	}
+
+	setting.Device = device
+	setting.File   = tapFile
+	return setting, nil
+}
+
+func Configure(vmId, requestedIP string, addrOnly bool, inf *api.InterfaceDescription) (*Settings, error) {
+
+	ip, ipnet, err := net.ParseCIDR(inf.Ip)
 	if err != nil {
 		glog.Errorf("Parse config IP failed %s", err)
 		return nil, err
 	}
 
-	BridgeIface := config.Bridge
 	maskSize, _ := ipnet.Mask.Size()
 
+	/* TODO: Move port maps out of the plugging procedure
 	err = SetupPortMaps(ip.String(), maps)
 	if err != nil {
 		glog.Errorf("Setup Port Map failed %s", err)
 		return nil, err
 	}
+	*/
 
-	mac := config.Mac
+	mac := inf.Mac
 	if mac == "" {
 		mac, err = GenRandomMac()
 		if err != nil {
@@ -1126,68 +1137,25 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 		return &Settings{
 			Mac:         mac,
 			IPAddress:   ip.String(),
-			Gateway:     config.Gw,
-			Bridge:      config.Bridge,
+			Gateway:     inf.Gw,
+			Bridge:      inf.Bridge,
 			IPPrefixLen: maskSize,
-			Device:      config.Ifname,
+			Device:      inf.TapName,
 			File:        nil,
 			Automatic:   false,
 		}, nil
 	}
 
-	tapFile, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+	device, tapFile, err := GetTapFd(inf.TapName, inf.Bridge)
 	if err != nil {
-		return nil, err
-	}
-
-	req.Flags = CIFF_TAP | CIFF_NO_PI | CIFF_ONE_QUEUE
-	if config.Ifname != "" {
-		copy(req.Name[:len(req.Name)-1], []byte(config.Ifname))
-	}
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, tapFile.Fd(),
-		uintptr(syscall.TUNSETIFF),
-		uintptr(unsafe.Pointer(&req)))
-	if errno != 0 {
-		err = fmt.Errorf("create tap device failed\n")
-		tapFile.Close()
-		return nil, err
-	}
-
-	device := strings.Trim(string(req.Name[:]), "\x00")
-
-	tapIface, err := net.InterfaceByName(device)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed %s", device, err)
-		tapFile.Close()
-		return nil, err
-	}
-
-	bIface, err := net.InterfaceByName(BridgeIface)
-	if err != nil {
-		glog.Errorf("get interface by name %s failed", BridgeIface)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = AddToBridge(tapIface, bIface)
-	if err != nil {
-		glog.Errorf("Add to bridge failed %s %s", BridgeIface, device)
-		tapFile.Close()
-		return nil, err
-	}
-
-	err = NetworkLinkUp(tapIface)
-	if err != nil {
-		glog.Errorf("Link up device %s failed", device)
-		tapFile.Close()
 		return nil, err
 	}
 
 	return &Settings{
 		Mac:         mac,
 		IPAddress:   ip.String(),
-		Gateway:     config.Gw,
-		Bridge:      BridgeIface,
+		Gateway:     inf.Gw,
+		Bridge:      inf.Bridge,
 		IPPrefixLen: maskSize,
 		Device:      device,
 		File:        tapFile,
@@ -1195,19 +1163,32 @@ func Configure(vmId, requestedIP string, addrOnly bool,
 	}, nil
 }
 
-// Release an interface for a select ip
-func Release(vmId, releasedIP string, maps []pod.UserContainerPort, file *os.File) error {
+func Close(file *os.File) error {
 	if file != nil {
 		file.Close()
 	}
+	return nil
+}
 
+func ReleaseAddr(releasedIP string) error {
 	if err := IpAllocator.ReleaseIP(BridgeIPv4Net, net.ParseIP(releasedIP)); err != nil {
 		return err
 	}
+	return nil
+}
 
+// Release an interface for a select ip
+func Release(vmId, releasedIP string) error {
+
+	if err := ReleaseAddr(releasedIP); err != nil {
+		return err
+	}
+
+	/* TODO: call this after release networks
 	if err := ReleasePortMaps(releasedIP, maps); err != nil {
 		glog.Errorf("fail to release port map %s", err)
 		return err
 	}
+	*/
 	return nil
 }
