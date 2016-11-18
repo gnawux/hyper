@@ -122,28 +122,6 @@ func (s *TestSuite) TestGetPodInfo(c *C) {
 	c.Logf("Got PodInfo %v", info)
 }
 
-func (s *TestSuite) TestGetVMCreateRemove(c *C) {
-	vm, err := s.client.CreateVM(1, 64)
-	c.Assert(err, IsNil)
-
-	var found = false
-	vmList, err := s.client.GetVMList()
-	c.Assert(err, IsNil)
-	c.Logf("Got VMList %v", vmList)
-	for _, v := range vmList {
-		if v.VmID == vm {
-			found = true
-		}
-	}
-	if !found {
-		c.Errorf("Can't find vm %s", vm)
-	}
-
-	resp, err := s.client.RemoveVM(vm)
-	c.Assert(err, IsNil)
-	c.Logf("RemoveVM resp %s", resp.String())
-}
-
 func (s *TestSuite) TestCreateAndStartPod(c *C) {
 	err := s.client.PullImage("busybox", "latest", nil)
 	c.Assert(err, IsNil)
