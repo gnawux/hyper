@@ -11,8 +11,8 @@ import (
 
 func (daemon *Daemon) GetPodInfo(podName string) (*types.PodInfo, error) {
 	var (
-		p       *pod.XPod
-		ok      bool
+		p  *pod.XPod
+		ok bool
 	)
 	p, ok = daemon.PodList.Get(podName)
 	if !ok {

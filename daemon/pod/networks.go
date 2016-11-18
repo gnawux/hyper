@@ -14,7 +14,7 @@ const DEFAULT_INTERFACE_NAME = "eth-default"
 type Interface struct {
 	p *XPod
 
-	spec *apitypes.UserInterface
+	spec     *apitypes.UserInterface
 	descript *runv.InterfaceDescription
 }
 
@@ -50,30 +50,30 @@ func (inf *Interface) prepare() error {
 			return err
 		}
 		inf.descript = &runv.InterfaceDescription{
-			Id: setting.IPAddress,
-			Lo: false,
+			Id:     setting.IPAddress,
+			Lo:     false,
 			Bridge: setting.Bridge,
-			Ip: setting.IPAddress,
-			Mac: setting.Mac,
-			Gw: setting.Gateway,
+			Ip:     setting.IPAddress,
+			Mac:    setting.Mac,
+			Gw:     setting.Gateway,
 		}
 		return nil
 	}
 
 	inf.descript = &runv.InterfaceDescription{
-		Id: inf.spec.Ifname,
-		Lo: false,
-		Bridge: inf.spec.Bridge,
-		Ip: inf.spec.Ip,
-		Mac: inf.spec.Mac,
-		Gw: inf.spec.Gateway,
+		Id:      inf.spec.Ifname,
+		Lo:      false,
+		Bridge:  inf.spec.Bridge,
+		Ip:      inf.spec.Ip,
+		Mac:     inf.spec.Mac,
+		Gw:      inf.spec.Gateway,
 		TapName: inf.spec.Tap,
 	}
 
 	return nil
 }
 
-func (inf *Interface) add() error{
+func (inf *Interface) add() error {
 	if inf.descript == nil || inf.descript.Ip == "" {
 		err := fmt.Errorf("interfice has not ready %#v", inf.descript)
 		inf.Log(ERROR, err)

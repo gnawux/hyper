@@ -24,7 +24,7 @@ func IsDNS1123Label(value string) bool {
 	return len(value) <= dns1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
 }
 
-func ParseImageRepoTag(image string) (repo, name, tag string){
+func ParseImageRepoTag(image string) (repo, name, tag string) {
 	all := strings.SplitN(image, ":", 2)
 
 	tag = ""
@@ -37,7 +37,7 @@ func ParseImageRepoTag(image string) (repo, name, tag string){
 		repo = all[0][:i]
 		name = all[0][i+1:]
 	} else {
-		repo =""
+		repo = ""
 		name = all[0]
 	}
 

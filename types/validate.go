@@ -3,10 +3,10 @@ package types
 import (
 	"errors"
 	"fmt"
-	"strings"
+	"net"
 	"reflect"
 	"regexp"
-	"net"
+	"strings"
 
 	"github.com/hyperhq/hyperd/utils"
 )
@@ -137,7 +137,7 @@ func keySet(ilist interface{}) (bool, map[string]bool) {
 func (vol UserVolume) key() string          { return vol.Name }
 func (vol UserVolumeReference) key() string { return vol.Volume }
 func (f UserFile) key() string              { return f.Name }
-func (env EnvironmentVar) key() string  { return env.Env }
+func (env EnvironmentVar) key() string      { return env.Env }
 
 func InterfaceSlice(slice interface{}) ([]interface{}, error) {
 	s := reflect.ValueOf(slice)

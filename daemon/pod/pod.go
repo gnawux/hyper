@@ -43,15 +43,15 @@ const (
 // provided by this struct.
 type XPod struct {
 	// Name is the unique name of a pod provided by user
-	name         string
+	name string
 
 	// logPrefix is the prefix for log message
-	logPrefix    string
+	logPrefix string
 
 	// FIXME: should we get the pod id back, the problem of id is --- we have to maintain two unique index for pod,
 
 	// globalSpec is the sandbox-wise spec, the stateful resources are not included in this field. see also:
-	globalSpec   *apitypes.UserPod
+	globalSpec *apitypes.UserPod
 
 	// stateful resources:
 	containers   map[string]*Container
@@ -99,7 +99,7 @@ func (p *XPod) SandboxName() string {
 	var sbn = ""
 	p.statusLock.RLock()
 	if p.sandbox != nil {
-		sbn =  p.sandbox.Id
+		sbn = p.sandbox.Id
 	}
 	p.statusLock.RUnlock()
 	return sbn
@@ -186,7 +186,7 @@ func (p *XPod) SandboxStatusString() string {
 		} else {
 			status = "associated"
 		}
-		status = strings.Join([]string{p.sandbox.Id,p.Id(),status},":")
+		status = strings.Join([]string{p.sandbox.Id, p.Id(), status}, ":")
 	}
 	p.statusLock.RUnlock()
 	return status

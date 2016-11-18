@@ -13,15 +13,15 @@ import (
 
 	dockertypes "github.com/docker/engine-api/types"
 	"github.com/golang/glog"
+	"github.com/hyperhq/hyperd/daemon/daemondb"
 	"github.com/hyperhq/hyperd/storage"
 	"github.com/hyperhq/hyperd/storage/aufs"
 	dm "github.com/hyperhq/hyperd/storage/devicemapper"
 	"github.com/hyperhq/hyperd/storage/overlay"
 	"github.com/hyperhq/hyperd/storage/vbox"
+	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	runv "github.com/hyperhq/runv/api"
-	apitypes "github.com/hyperhq/hyperd/types"
-	"github.com/hyperhq/hyperd/daemon/daemondb"
 )
 
 type Storage interface {
@@ -132,7 +132,7 @@ func (dms *DevMapperStorage) PrepareContainer(mountId, sharedDir string) (*runv.
 	}
 
 	vol := &runv.VolumeDescription{
-		Name: devFullName,
+		Name:   devFullName,
 		Source: devFullName,
 		Fstype: fstype,
 		Format: "raw",
@@ -278,7 +278,7 @@ func (*AufsStorage) Init() error { return nil }
 
 func (*AufsStorage) CleanUp() error { return nil }
 
-func (a *AufsStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error)  {
+func (a *AufsStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeDescription, error) {
 	_, err := aufs.MountContainerToSharedDir(mountId, a.RootPath(), sharedDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
@@ -287,7 +287,7 @@ func (a *AufsStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeD
 
 	containerPath := "/" + mountId
 	vol := &runv.VolumeDescription{
-		Name: containerPath,
+		Name:   containerPath,
 		Source: containerPath,
 		Fstype: "dir",
 		Format: "vfs",
@@ -319,7 +319,7 @@ func (a *AufsStorage) CreateVolume(podId string, spec *apitypes.UserVolume) erro
 	spec.Source = volName
 	spec.Format = "vfs"
 	spec.Fstype = "dir"
-	return  nil
+	return nil
 }
 
 func (a *AufsStorage) RemoveVolume(podId string, record []byte) error {
@@ -358,7 +358,7 @@ func (o *OverlayFsStorage) PrepareContainer(mountId, sharedDir string) (*runv.Vo
 
 	containerPath := "/" + mountId
 	vol := &runv.VolumeDescription{
-		Name: containerPath,
+		Name:   containerPath,
 		Source: containerPath,
 		Fstype: "dir",
 		Format: "vfs",
@@ -390,7 +390,7 @@ func (o *OverlayFsStorage) CreateVolume(podId string, spec *apitypes.UserVolume)
 	spec.Source = volName
 	spec.Format = "vfs"
 	spec.Fstype = "dir"
-	return  nil
+	return nil
 }
 
 func (o *OverlayFsStorage) RemoveVolume(podId string, record []byte) error {
@@ -428,7 +428,7 @@ func (v *VBoxStorage) PrepareContainer(mountId, sharedDir string) (*runv.VolumeD
 	}
 
 	vol := &runv.VolumeDescription{
-		Name: devFullName,
+		Name:   devFullName,
 		Source: devFullName,
 		Fstype: "ext4",
 		Format: "vdi",
@@ -453,7 +453,7 @@ func (v *VBoxStorage) CreateVolume(podId string, spec *apitypes.UserVolume) erro
 	spec.Source = volName
 	spec.Format = "vfs"
 	spec.Fstype = "dir"
-	return  nil
+	return nil
 }
 
 func (v *VBoxStorage) RemoveVolume(podId string, record []byte) error {

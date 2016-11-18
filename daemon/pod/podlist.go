@@ -7,18 +7,18 @@ import (
 )
 
 type PodList struct {
-	pods       map[string]*XPod
-	containers map[string]string
+	pods           map[string]*XPod
+	containers     map[string]string
 	containerNames map[string]string
-	mu         *sync.RWMutex
+	mu             *sync.RWMutex
 }
 
 func NewPodList() *PodList {
 	return &PodList{
-		pods:       make(map[string]*XPod),
-		containers: make(map[string]string),
+		pods:           make(map[string]*XPod),
+		containers:     make(map[string]string),
 		containerNames: make(map[string]string),
-		mu:         &sync.RWMutex{},
+		mu:             &sync.RWMutex{},
 	}
 }
 
@@ -31,7 +31,7 @@ func (pl *PodList) Get(id string) (*XPod, bool) {
 }
 
 func (pl *PodList) ReserveContainerID(id, pod string) error {
-	if pn, ok := pl.containers[id]; ok && pn !=pod {
+	if pn, ok := pl.containers[id]; ok && pn != pod {
 		return fmt.Errorf("the container id %s has already taken by pod %s", id, pn)
 	}
 	pl.containers[id] = pod
@@ -39,7 +39,7 @@ func (pl *PodList) ReserveContainerID(id, pod string) error {
 }
 
 func (pl *PodList) ReserveContainerName(name, pod string) error {
-	if pn, ok := pl.containerNames[name]; ok && pn !=pod {
+	if pn, ok := pl.containerNames[name]; ok && pn != pod {
 		return fmt.Errorf("the container name %s has already taken by pod %s", name, pn)
 	}
 	pl.containerNames[name] = pod
@@ -56,7 +56,7 @@ func (pl *PodList) ReserveContainer(id, name, pod string) error {
 		return fmt.Errorf("container name %s has already taken by pod %s", name, pn)
 	}
 	if id != "" {
-		if pn, ok := pl.containers[id]; ok && pn !=pod {
+		if pn, ok := pl.containers[id]; ok && pn != pod {
 			return nil, fmt.Errorf("the container id %s has already taken by pod %s", id, pn)
 		}
 		pl.containers[id] = pod
@@ -126,7 +126,7 @@ func (pl *PodList) GetByContainerIdOrName(cid string) (*XPod, string, bool) {
 	if podid, ok := pl.containerNames[cid]; ok {
 		if p, ok := pl.pods[podid]; ok {
 			id, _ := p.ContainerName2Id(cid)
-			return p, id,  true
+			return p, id, true
 		}
 		return nil, "", false
 	}

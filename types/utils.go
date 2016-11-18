@@ -2,10 +2,10 @@ package types
 
 import (
 	"fmt"
-	"strings"
-	"strconv"
-	"sort"
 	"github.com/hyperhq/hyperd/utils"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 func (p *UserPod) LookupContainer(idOrName string) *UserContainer {
@@ -141,7 +141,7 @@ func (pr *_PortRange) isRange() bool {
 }
 
 func (pr *_PortRange) count() int {
-	return pr.end-pr.start+1
+	return pr.end - pr.start + 1
 }
 
 func (pr *_PortRange) toString() string {
@@ -170,17 +170,17 @@ func readPortMapping(pm *PortMapping) (*_PortMapping, error) {
 		return nil, fmt.Errorf("port range mismatch: %d vs %d", h.toString(), c.toString())
 	}
 	return &_PortMapping{
-		host: h,
+		host:      h,
 		container: c,
-		protocol: pm.Protocol,
+		protocol:  pm.Protocol,
 	}
 }
 
 func (pm *_PortMapping) toSpec() *PortMapping {
 	return &PortMapping{
 		ContainerPort: pm.container.toString(),
-		HostPort: pm.host.toString(),
-		Protocol: pm.protocol,
+		HostPort:      pm.host.toString(),
+		Protocol:      pm.protocol,
 	}
 }
 
@@ -203,7 +203,7 @@ func mergePorts(pms []*_PortMapping) ([]*_PortMapping, error) {
 
 	for _, pm := range pms {
 		if pm.isRange() {
-			for i := pm.host.start; i <= pm.host.end; i ++ {
+			for i := pm.host.start; i <= pm.host.end; i++ {
 				if occupy[i] {
 					return nil, fmt.Errorf("duplicate host port %d", i)
 				}
@@ -229,8 +229,8 @@ func mergePorts(pms []*_PortMapping) ([]*_PortMapping, error) {
 	for _, p := range tbm {
 		cur := singles[p]
 		if last != nil {
-			if cur.host.start - last.host.end == 1 &&
-				cur.container.start - last.container.end == 1 {
+			if cur.host.start-last.host.end == 1 &&
+				cur.container.start-last.container.end == 1 {
 				last.host.end++
 				last.container.end++
 				continue
@@ -243,7 +243,6 @@ func mergePorts(pms []*_PortMapping) ([]*_PortMapping, error) {
 	if last != nil {
 		results = append(results, last)
 	}
-
 
 	for _, pm := range remains {
 		for p := pm.host.start; p <= pm.host.end; p++ {
@@ -312,9 +311,9 @@ func (c *UserContainer) ToPodPortmappings(ignoreError bool) ([]*PortMapping, err
 	result := []*PortMapping{}
 	for _, pc := range c.Ports {
 		pp := &PortMapping{
-			HostPort: strconv.Itoa(pc.HostPort),
+			HostPort:      strconv.Itoa(pc.HostPort),
 			ContainerPort: strconv.Itoa(pc.ContainerPort),
-			Protocol: strings.ToLower(pc.Protocol),
+			Protocol:      strings.ToLower(pc.Protocol),
 		}
 		if pp.Protocol == "" {
 			pp.Protocol = "tcp"

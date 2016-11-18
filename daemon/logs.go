@@ -75,7 +75,7 @@ func (daemon *Daemon) GetContainerLogs(container string, config *ContainerLogsCo
 
 	var outStream io.Writer = wf
 	errStream := outStream
-	if !p.ContainerHasTty(id){
+	if !p.ContainerHasTty(id) {
 		errStream = stdcopy.NewStdWriter(outStream, stdcopy.Stderr)
 		outStream = stdcopy.NewStdWriter(outStream, stdcopy.Stdout)
 	}

@@ -20,9 +20,9 @@ import (
 	dockerutils "github.com/docker/docker/utils"
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/utils"
+	"github.com/hyperhq/runv/driverloader"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
-	"github.com/hyperhq/runv/driverloader"
 )
 
 var (
@@ -31,14 +31,14 @@ var (
 
 type Daemon struct {
 	*docker.Daemon
-	ID          string
-	db          *daemondb.DaemonDB
-	PodList     *pod.PodList
-	Factory     factory.Factory
-	Host        string
-	Storage     Storage
-	Hypervisor  string
-	DefaultLog  *pod.GlobalLogConfig
+	ID         string
+	db         *daemondb.DaemonDB
+	PodList    *pod.PodList
+	Factory    factory.Factory
+	Host       string
+	Storage    Storage
+	Hypervisor string
+	DefaultLog *pod.GlobalLogConfig
 }
 
 func (daemon *Daemon) Restore() error {
@@ -119,10 +119,10 @@ func NewDaemon(cfg *apitypes.HyperConfig) (*Daemon, error) {
 	}
 
 	daemon := &Daemon{
-		ID:          fmt.Sprintf("%d", os.Getpid()),
-		db:          db,
-		PodList:     pod.NewPodList(),
-		Host:        cfg.Host,
+		ID:      fmt.Sprintf("%d", os.Getpid()),
+		db:      db,
+		PodList: pod.NewPodList(),
+		Host:    cfg.Host,
 	}
 
 	daemon.Daemon, err = docker.NewDaemon(dockerCfg, registryCfg)

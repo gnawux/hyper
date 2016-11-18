@@ -47,8 +47,8 @@ func (wg *WaitGroupWithFail) Fail(err error) {
 }
 
 type FutureSet struct {
-	waitList map[string]bool
-	resultChan chan struct{
+	waitList   map[string]bool
+	resultChan chan struct {
 		id  string
 		err error
 	}
@@ -62,9 +62,9 @@ var (
 
 func NewFutureSet() *FutureSet {
 	return &FutureSet{
-		waitList:   make(map[string]bool),
-		resultChan: make(chan struct{
-			id string
+		waitList: make(map[string]bool),
+		resultChan: make(chan struct {
+			id  string
 			err error
 		}, 1),
 	}
@@ -83,9 +83,9 @@ func (fs *FutureSet) Add(id string, op func() error) {
 	fs.waitList[id] = true
 	fs.Unlock()
 
-	go func(){
+	go func() {
 		err := op()
-		fs.resultChan <- struct{
+		fs.resultChan <- struct {
 			id  string
 			err error
 		}{id, err}
@@ -123,4 +123,3 @@ func (fs *FutureSet) Wait(timeout time.Duration) error {
 
 	return nil
 }
-

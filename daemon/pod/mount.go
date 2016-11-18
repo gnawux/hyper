@@ -1,10 +1,10 @@
 package pod
 
 import (
-	"path"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 
 	"github.com/hyperhq/hyperd/lib/hlog"
 	"github.com/hyperhq/hyperd/storage"
@@ -35,14 +35,14 @@ func ProbeExistingVolume(v *apitypes.UserVolume, sharedDir string) (*runv.Volume
 
 	var err error = nil
 	vol := &runv.VolumeDescription{
-		Name: v.Name,
+		Name:   v.Name,
 		Source: v.Source,
 		Format: v.Format,
 		Fstype: v.Fstype,
 		Options: &runv.VolumeOption{
-			User: v.Option.User,
+			User:     v.Option.User,
 			Monitors: v.Option.Monitors,
-			Keyring: v.Option.Keyring,
+			Keyring:  v.Option.Keyring,
 		},
 	}
 
@@ -68,7 +68,7 @@ func UmountExistingVolume(fstype, target, sharedDir string) error {
 	if fstype == "dir" {
 		return storage.UmountVFSVolume(target, sharedDir)
 	}
-	if ! path.IsAbs(target) {
+	if !path.IsAbs(target) {
 		return nil
 	}
 	return dm.UnmapVolume(target)

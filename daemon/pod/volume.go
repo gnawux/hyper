@@ -11,6 +11,7 @@ import (
 )
 
 type VolumeState int32
+
 const (
 	S_VOLUME_CREATED VolumeState = iota
 	S_VOLUME_IMSERTING
@@ -21,9 +22,9 @@ const (
 type Volume struct {
 	p *XPod
 
-	spec       *apitypes.UserVolume
-	descript   *runv.VolumeDescription
-	status     VolumeState
+	spec     *apitypes.UserVolume
+	descript *runv.VolumeDescription
+	status   VolumeState
 
 	insertSubscribers []*utils.WaitGroupWithFail
 
@@ -32,8 +33,8 @@ type Volume struct {
 
 func newVolume(p *XPod, spec *apitypes.UserVolume) *Volume {
 	return &Volume{
-		p:          p,
-		spec:       spec,
+		p:                 p,
+		spec:              spec,
 		insertSubscribers: []*sync.WaitGroup{},
 	}
 }
@@ -55,7 +56,7 @@ func (v *Volume) getStatus() VolumeState {
 
 func (v *Volume) Info() *apitypes.PodVolume {
 	return &apitypes.PodVolume{
-		Name: v.spec.Name,
+		Name:   v.spec.Name,
 		Source: v.spec.Source,
 		Driver: v.spec.Format,
 	}
@@ -65,7 +66,7 @@ func (v *Volume) Info() *apitypes.PodVolume {
 func (v *Volume) add() error {
 	changed, err := v.transit(
 		S_VOLUME_IMSERTING,
-		map[VolumeState]bool{S_VOLUME_CREATED: true}, // from created to inserting
+		map[VolumeState]bool{S_VOLUME_CREATED: true},                            // from created to inserting
 		map[VolumeState]bool{S_VOLUME_IMSERTING: true, S_VOLUME_INSERTED: true}, //ignore if inserting or inserted already
 	)
 	if !changed { // already logged in v.transit method
@@ -76,7 +77,7 @@ func (v *Volume) add() error {
 		if err != nil {
 			v.setInsertFail(err)
 		}
-	} ()
+	}()
 
 	err = v.mount()
 	if err != nil {
@@ -87,7 +88,7 @@ func (v *Volume) add() error {
 		if err != nil {
 			v.umount()
 		}
-	} ()
+	}()
 
 	err = v.insert()
 	if err != nil {
@@ -104,7 +105,7 @@ func (v *Volume) add() error {
 // the class.
 func (v *Volume) insert() error {
 	r := v.p.sandbox.AddVolume()
-	if ! r.IsSuccess() {
+	if !r.IsSuccess() {
 		err := fmt.Errorf("failed to insert: %s", r.Message())
 		v.Log(ERROR, err)
 		return err
@@ -166,7 +167,7 @@ func (v *Volume) mount() error {
 	return nil
 }
 
-func(v *Volume) umount() error {
+func (v *Volume) umount() error {
 	if v.descript != nil {
 		return UmountExistingVolume(v.descript.Fstype, v.descript.Source, v.p.sandboxShareDir())
 	}
@@ -208,7 +209,7 @@ func (v *Volume) setInserted() {
 
 func (v *Volume) setInsertFail(err error) {
 	v.Lock()
-	v.unlockedTransit(S_VOLUME_ERROR, map[VolumeState]bool{S_VOLUME_IMSERTING:true}, map[VolumeState]bool{})
+	v.unlockedTransit(S_VOLUME_ERROR, map[VolumeState]bool{S_VOLUME_IMSERTING: true}, map[VolumeState]bool{})
 	if v.insertSubscribers != nil {
 		for _, wg := range v.insertSubscribers {
 			wg.Fail(err)

@@ -101,16 +101,22 @@ func (p *XPod) DeleteService(srvs []*apitypes.UserService) error {
 	p.resourceLock.Lock()
 	defer p.resourceLock.Unlock()
 
-	tbd := make(map[struct{
+	tbd := make(map[struct {
 		IP   string
 		Port int32
 	}]bool, len(srvs))
 	for _, srv := range srvs {
-		tbd[struct{IP string;Port int32}{srv.ServiceIP, srv.ServicePort}] = true
+		tbd[struct {
+			IP   string
+			Port int32
+		}{srv.ServiceIP, srv.ServicePort}] = true
 	}
 	target := make([]*apitypes.UserService, len(p.services))
 	for _, srv := range p.services {
-		if tbd[struct{IP string;Port int32}{srv.ServiceIP, srv.ServicePort}] {
+		if tbd[struct {
+			IP   string
+			Port int32
+		}{srv.ServiceIP, srv.ServicePort}] {
 			p.Log(TRACE, "remove service %#v", srv)
 			continue
 		}
@@ -139,4 +145,3 @@ func (p *XPod) getServiceContainer() string {
 	}
 	return ""
 }
-

@@ -53,7 +53,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 				for _, matcher := range matchers {
 					m, q := matcher(p)
 					match = match && m
-					quit  = quit || q
+					quit = quit || q
 				}
 				if match {
 					pl = append(pl, p)
@@ -76,7 +76,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			for _, matcher := range matchers {
 				m, q := matcher(p)
 				match = match && m
-				quit  = quit || q
+				quit = quit || q
 			}
 			if match {
 				pl = append(pl, p)

@@ -189,5 +189,3 @@ func ProcessPodBytes(body []byte) (*UserPod, error) {
 
 	return &userPod, nil
 }
-
-

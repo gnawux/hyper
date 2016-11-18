@@ -9,4 +9,3 @@ const (
 	DEFAULT_VOL_FS              = "ext4"
 	DEFAULT_VOL_MKFS            = "mkfs.ext4"
 )
-

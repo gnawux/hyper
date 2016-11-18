@@ -9,8 +9,8 @@ import (
 
 	dockertypes "github.com/docker/engine-api/types"
 
-	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/hyperd/utils"
+	"github.com/hyperhq/runv/hypervisor"
 )
 
 type sandboxOp func(sb *hypervisor.Vm) error
@@ -46,7 +46,7 @@ func (p *XPod) Stop(graceful int) error {
 			p.status = S_POD_ERROR
 			p.statusLock.Unlock()
 		}
-	} ()
+	}()
 
 	p.Log(INFO, "going to stop pod")
 	p.stopAllContainers(graceful)
@@ -61,7 +61,7 @@ func (p *XPod) Stop(graceful int) error {
 			p.Log(ERROR, err)
 			return err
 		},
-		time.Second * time.Duration(graceful),
+		time.Second*time.Duration(graceful),
 		"stop pod")
 
 	if err != nil {
@@ -78,7 +78,7 @@ func (p *XPod) ForceQuit() {
 			sb.Kill()
 			return nil
 		},
-		time.Second * 5,
+		time.Second*5,
 		"kill pod")
 	if err != nil {
 		p.Log(ERROR, "force quit failed: %v", err)
@@ -151,7 +151,7 @@ func (p *XPod) Pause() error {
 		func(sb *hypervisor.Vm) error {
 			return sb.Pause(true)
 		},
-		time.Second * 5,
+		time.Second*5,
 		"pause pod")
 
 	if err != nil {
@@ -181,7 +181,7 @@ func (p *XPod) UnPause() error {
 		func(sb *hypervisor.Vm) error {
 			return sb.Pause(false)
 		},
-		time.Second * 5,
+		time.Second*5,
 		"resume pod")
 
 	if err != nil {
@@ -202,7 +202,7 @@ func (p *XPod) KillContainer(id string, sig int64) error {
 		func(sb *hypervisor.Vm) error {
 			return sb.KillContainer(id, syscall.Signal(sig))
 		},
-		time.Second * 5,
+		time.Second*5,
 		fmt.Sprintf("Kill container %s with %d", id, sig))
 }
 
@@ -223,7 +223,7 @@ func (p *XPod) StopContainer(id string, graceful int) error {
 		return err
 	}
 
-	err, eMap := p.stopContainers([]string{id}, map[string]bool{id:true}, graceful)
+	err, eMap := p.stopContainers([]string{id}, map[string]bool{id: true}, graceful)
 	if err != nil {
 		p.Log(ERROR, "fail during stop container %s: %v", id, err)
 	}
@@ -261,13 +261,13 @@ func (p *XPod) RemoveContainer(id string) error {
 				p.statusLock.Unlock()
 			}
 		}
-	} ()
+	}()
 
 	cvols := c.volumes()
 
 	if p.IsRunning() {
 		if c.IsRunning() {
-			err, eMap = p.stopContainers([]string{id}, map[string]bool{id:true}, 5)
+			err, eMap = p.stopContainers([]string{id}, map[string]bool{id: true}, 5)
 			if err != nil {
 				p.Log(ERROR, "fail during stop container %s: %v", id, err)
 				return err
@@ -359,14 +359,14 @@ func (p *XPod) protectedSandboxOperation(op sandboxOp, timeout time.Duration, co
 	}
 
 	select {
-	case err, ok := <- errChan:
+	case err, ok := <-errChan:
 		if !ok {
 			err := fmt.Errorf("%s: failed to get operation result", comment)
 			p.Log(ERROR, err)
 			return err
 		}
 		return err
-	case <- timeoutChan:
+	case <-timeoutChan:
 		err := fmt.Errorf("%s: timeout (%v) during waiting operation result", comment, timeout)
 		p.Log(ERROR, err)
 		return err
@@ -381,7 +381,7 @@ func (p *XPod) stopAllContainers(graceful int) error {
 	}
 
 	var (
-		cMap = make(map[string]bool, len(p.containers))
+		cMap  = make(map[string]bool, len(p.containers))
 		cList = make([]string, 0, len(p.containers))
 	)
 
@@ -406,8 +406,8 @@ func (p *XPod) stopAllContainers(graceful int) error {
 }
 
 func (p *XPod) stopContainers(cList []string, cMap map[string]bool, graceful int) (error, map[string]error) {
-	type containerException struct{
-		id string
+	type containerException struct {
+		id  string
 		err error
 	}
 
@@ -424,11 +424,11 @@ func (p *XPod) stopContainers(cList []string, cMap map[string]bool, graceful int
 			err := c.terminate()
 			if err != nil {
 				errChan <- &containerException{
-					id: id,
+					id:  id,
 					err: err,
 				}
 			}
-		} (cid)
+		}(cid)
 	}
 
 	if len(cMap) > 0 && resChan == nil {

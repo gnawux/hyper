@@ -78,7 +78,7 @@ func (p *XPod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId
 			return
 		}
 
-		r, ok := <- result
+		r, ok := <-result
 		if !ok {
 			err := fmt.Errorf("waiting exec %s of container %s interrupted", execId, containerId)
 			p.Log(ERROR, err)

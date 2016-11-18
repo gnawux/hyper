@@ -88,7 +88,7 @@ func SetupLoopbackAddress(vm *hypervisor.Vm, container, ip, operation string) er
 	}
 
 	result := vm.WaitProcess(false, []string{execId}, 60)
-	r, ok := <- result
+	r, ok := <-result
 	if !ok {
 		return fmt.Errorf("exec failed %s: %s", command, execId)
 	}

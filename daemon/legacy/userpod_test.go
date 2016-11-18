@@ -43,4 +43,3 @@ func TestProcessPodBytes(t *testing.T) {
 		t.Fatal("The ProcessPodBytes function should return an error while processing a json string without image name!")
 	}
 }
-

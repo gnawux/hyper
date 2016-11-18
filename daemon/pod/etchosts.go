@@ -52,7 +52,7 @@ func generateDefaultHosts() ([]byte, error) {
 }
 
 func HostsCreator(pod string) *utils.Initializer {
-	return utils.NewInitializer(func(){
+	return utils.NewInitializer(func() {
 		prepareHosts(pod)
 	})
 }

@@ -173,11 +173,11 @@ func (c *Container) InfoStatus() *apitypes.ContainerStatus {
 	c.status.RLock()
 	defer c.status.RUnlock()
 	s := &apitypes.ContainerStatus{
-		Name: c.SpecName(),
+		Name:        c.SpecName(),
 		ContainerID: c.Id(),
-		Waiting: &apitypes.WaitingStatus{Reason: ""},
-		Running: &apitypes.RunningStatus{StartedAt: ""},
-		Terminated: &apitypes.TermStatus{},
+		Waiting:     &apitypes.WaitingStatus{Reason: ""},
+		Running:     &apitypes.RunningStatus{StartedAt: ""},
+		Terminated:  &apitypes.TermStatus{},
 	}
 	switch c.status.State {
 	case S_CONTAINER_NONE, S_CONTAINER_CREATING:
@@ -546,7 +546,7 @@ func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*r
 	for _, vol := range c.spec.Volumes {
 		existed[vol.Path] = vol.Detail
 		if r, ok := refs[vol.Volume]; !ok {
-			refs[vol.Volume] = []*runv.VolumeReference{&runv.VolumeReference{
+			refs[vol.Volume] = []*runv.VolumeReference{{
 				Path:     vol.Path,
 				Name:     vol.Volume,
 				ReadOnly: vol.ReadOnly,
@@ -582,7 +582,7 @@ func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*r
 		}
 
 		c.spec.Volumes = append(c.spec.Volumes, r)
-		refs[n] = []*runv.VolumeReference{&runv.VolumeReference{
+		refs[n] = []*runv.VolumeReference{{
 			Path:     tgt,
 			Name:     n,
 			ReadOnly: false,

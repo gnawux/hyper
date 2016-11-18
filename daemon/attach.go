@@ -9,7 +9,7 @@ import (
 
 func (daemon *Daemon) Attach(stdin io.ReadCloser, stdout io.WriteCloser, container string) error {
 	var (
-		err  error
+		err error
 	)
 
 	p, id, ok := daemon.PodList.GetByContainerIdOrName(container)
