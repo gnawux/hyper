@@ -146,50 +146,76 @@ func (p *XPod) IsContainerAlive(cid string) bool {
 	return false
 }
 
-func (p *XPod) StatusString() string {
-	var (
-		status string
-		sbn    string
-	)
-	p.statusLock.RLock()
-	if p.sandbox != nil {
-		sbn = p.sandbox.Id
+func (p *XPod) BriefStatus() (s *apitypes.PodListResult) {
+	if p.info == nil {
+		p.initPodInfo()
 	}
+
+	p.statusLock.RLock()
+	s = &apitypes.PodListResult{
+		PodID:     p.Id(),
+		PodName:   p.Name(),
+		VmID:      p.SandboxName(),
+		CreatedAt: p.info.CreatedAt,
+		Labels:    p.labels,
+	}
+
 	switch p.status {
 	case S_POD_NONE:
-		status = ""
+		s.Status = ""
 	case S_POD_STARTING:
-		status = "pending"
+		s.Status = "pending"
 	case S_POD_RUNNING:
-		status = "running"
+		s.Status = "running"
 	case S_POD_STOPPED:
-		status = "failed"
+		s.Status = "failed"
 	case S_POD_PAUSED:
-		status = "paused"
+		s.Status = "paused"
 	case S_POD_STOPPING:
-		status = "stopping"
+		s.Status = "stopping"
 	case S_POD_ERROR:
-		status = "stopping"
+		s.Status = "stopping"
 	default:
 	}
 	p.statusLock.RUnlock()
 
-	return strings.Join([]string{p.Id(), sbn, status}, ":")
+	return s
+}
+
+func (p *XPod) StatusString() string {
+	s := p.BriefStatus()
+	return strings.Join([]string{s.PodID, s.PodName, s.VmID, s.Status}, ":")
+}
+
+func (p *XPod) SandboxBriefStatus() (s *apitypes.VMListResult) {
+	p.statusLock.RLock()
+	if p.sandbox != nil {
+		s = &apitypes.VMListResult{
+			VmID:  p.SandboxName(),
+			PodID: p.Id(),
+		}
+		if p.status == S_POD_PAUSED {
+			s.Status = "paused"
+		} else {
+			s.Status = "associated"
+		}
+	}
+	p.statusLock.RUnlock()
+	return s
 }
 
 func (p *XPod) SandboxStatusString() string {
-	var status string
-	p.statusLock.RLock()
-	if p.sandbox != nil {
-		if p.status == S_POD_PAUSED {
-			status = "paused"
-		} else {
-			status = "associated"
-		}
-		status = strings.Join([]string{p.sandbox.Id, p.Id(), status}, ":")
+	if s := p.SandboxBriefStatus(); s != nil {
+		return strings.Join([]string{s.VmID, s.PodID, s.Status}, ":")
 	}
-	p.statusLock.RUnlock()
-	return status
+	return ""
+}
+
+func (p *XPod) ContainerBriefStatus(cid string) *apitypes.ContainerListResult {
+	if c, ok := p.containers[cid]; ok {
+		return c.BriefStatus()
+	}
+	return nil
 }
 
 func (p *XPod) ContainerStatusString(cid string) string {

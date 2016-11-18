@@ -112,7 +112,7 @@ func ApplyServices(vm *hypervisor.Vm, container string, services []*apitypes.Use
 
 	// Update haproxy config
 	config := path.Join(ServiceVolume, ServiceConfig)
-	 vm.WriteFile(container, config, GenerateServiceConfig(services))
+	vm.WriteFile(container, config, GenerateServiceConfig(services))
 
 	return vm.KillContainer(container, linuxsignal.SIGHUP)
 }

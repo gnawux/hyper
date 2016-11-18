@@ -297,29 +297,36 @@ func (c *Container) IsStopped() bool {
 	return stopped
 }
 
-func (c *Container) StatusString() string {
-	var status string
-
+func (c *Container) BriefStatus() (s *apitypes.ContainerListResult) {
 	c.status.RLock()
+	s = &apitypes.ContainerListResult{
+		ContainerID:   c.Id(),
+		ContainerName: c.SpecName(),
+		PodID:         c.p.Id(),
+	}
 	switch c.status.State {
 	case S_CONTAINER_NONE, S_CONTAINER_CREATING:
-		status = "pending"
+		s.Status = "pending"
 	case S_CONTAINER_RUNNING, S_CONTAINER_STOPPING:
-		status = "running"
+		s.Status = "running"
 	case S_CONTAINER_CREATED:
-		status = "pending"
+		s.Status = "pending"
 		if !c.status.FinishedAt.Equal(epocZero) {
 			if c.status.ExitCode == 0 {
-				status = "succeeded"
+				s.Status = "succeeded"
 			} else {
-				status = "failed"
+				s.Status = "failed"
 			}
 		}
 	default:
 	}
 	c.status.RUnlock()
+	return s
+}
 
-	return strings.Join([]string{c.Id(), c.SpecName(), c.p.Id(), status}, ":")
+func (c *Container) StatusString() string {
+	s := c.BriefStatus()
+	return strings.Join([]string{s.ContainerID, s.ContainerName, s.PodID, s.Status}, "")
 }
 
 func (c *Container) HasTty() bool {

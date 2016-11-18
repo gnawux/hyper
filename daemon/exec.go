@@ -1,10 +1,10 @@
 package daemon
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/golang/glog"
-	"fmt"
 )
 
 func (daemon *Daemon) ExitCode(containerId, execId string) (int, error) {

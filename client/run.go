@@ -79,9 +79,9 @@ func (cli *HyperClient) HyperCmdRun(args ...string) (err error) {
 	t1 := time.Now()
 
 	var (
-		spec  apitype.UserPod
-		code  int
-		tty   = false
+		spec apitype.UserPod
+		code int
+		tty  = false
 	)
 	json.Unmarshal([]byte(podJson), &spec)
 
@@ -261,7 +261,7 @@ func (cli *HyperClient) JsonFromCmdline(cmdArgs, cmdEnvs, cmdPortmaps []string, 
 		Resource:   &apitype.UserResource{Vcpu: int32(cpu), Memory: int32(memory)},
 		Files:      []*apitype.UserFile{},
 		Volumes:    volumes,
-		Log:        &apitype.PodLogConfig{
+		Log: &apitype.PodLogConfig{
 			Type:   cmdLogDriver,
 			Config: logOpts,
 		},

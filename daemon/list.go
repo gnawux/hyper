@@ -9,16 +9,83 @@ import (
 
 type pMatcher func(p *pod.XPod) (match, quit bool)
 
+func (daemon *Daemon) snapshotPodList(podId, vmId string) []*pod.XPod {
+	var (
+		pl = []*pod.XPod{}
+	)
+
+	if podId != "" {
+		p, ok := daemon.PodList.Get(podId)
+		if ok {
+			pl = append(pl, p)
+		}
+		if vmId != "" && p.SandboxName() != vmId {
+			return []*pod.XPod{}
+		}
+		return pl
+	}
+
+	if vmId != "" {
+		p := daemon.PodList.Find(func(p *pod.XPod) bool {
+			return p.SandboxName() == vmId
+		})
+		if p != nil {
+			pl = append(pl, p)
+		}
+		return pl
+	}
+
+	daemon.PodList.Foreach(func(p *pod.XPod) error {
+		pl = append(pl, p)
+		return nil
+	})
+	return pl
+}
+
 func (daemon *Daemon) ListContainers(podId, vmId string, auxiliary bool) ([]*apitypes.ContainerListResult, error) {
-	return nil, nil
+	var (
+		cids   []string
+		result = []*apitypes.ContainerListResult{}
+	)
+	pl := daemon.snapshotPodList(podId, vmId)
+	for _, p := range pl {
+		if auxiliary {
+			cids = p.ContainerIds()
+		} else {
+			cids = p.ContainerIdsOf(apitypes.UserContainer_REGULAR)
+		}
+		for _, cid := range cids {
+			status := p.ContainerBriefStatus(cid)
+			if status != nil {
+				result = append(result, status)
+			}
+		}
+
+	}
+	return result, nil
 }
 
 func (daemon *Daemon) ListPods(podId, vmId string) ([]*apitypes.PodListResult, error) {
-	return nil, nil
+	pl := daemon.snapshotPodList(podId, vmId)
+	result := make([]*apitypes.PodListResult, 0, len(pl))
+	for _, p := range pl {
+		if s := p.BriefStatus(); s != nil {
+			result = append(result, s)
+		}
+	}
+	return result, nil
 }
 
 func (daemon *Daemon) ListVMs(podId, vmId string) ([]*apitypes.VMListResult, error) {
-	return nil, nil
+	pl := daemon.snapshotPodList(podId, vmId)
+	result := make([]*apitypes.VMListResult, 0, len(pl))
+	for _, p := range pl {
+		if s := p.SandboxBriefStatus(); s != nil {
+			result = append(result, s)
+		}
+	}
+
+	return result, nil
 }
 
 func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string][]string, error) {
