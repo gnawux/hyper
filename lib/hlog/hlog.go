@@ -37,7 +37,7 @@ func HLog(level LogLevel, owner interface{}, depth int, args ...interface{}) {
 			return
 		}
 	}
-	l(depth+1, prefix, args...)
+	l(depth+1, append([]interface{}{prefix}, args...)...)
 }
 
 type logFunc func(int, ...interface{})

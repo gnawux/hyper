@@ -201,10 +201,6 @@ func StringToSignal(s string) syscall.Signal {
 	return sig
 }
 
-func (i *Initializer) Do() {
-	i.once.Do(i.job)
-}
-
 func RsplitN(s, sep string, n int) []string {
 	if n == 0 {
 		return nil

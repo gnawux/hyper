@@ -28,7 +28,7 @@ func (p *UserPod) CloneGlobalPart() *UserPod {
 		Hostname:      p.Hostname,
 		Type:          p.Type,
 		RestartPolicy: p.RestartPolicy,
-		Tty:           p.Type,
+		Tty:           p.Tty,
 		Resource:      p.Resource,
 		Log:           p.Log,
 		Dns:           p.Dns,
@@ -112,7 +112,7 @@ type _PortRange struct {
 
 func readPortRange(p string) (*_PortRange, error) {
 	if p == "" {
-		return &_PortRange{1025, 65535}
+		return &_PortRange{1025, 65535}, nil
 	} else if strings.Contains(p, "-") {
 		parts := strings.SplitN(p, "-", 2)
 		start, err := strconv.Atoi(parts[0])
@@ -173,7 +173,7 @@ func readPortMapping(pm *PortMapping) (*_PortMapping, error) {
 		host:      h,
 		container: c,
 		protocol:  pm.Protocol,
-	}
+	}, nil
 }
 
 func (pm *_PortMapping) toSpec() *PortMapping {
@@ -311,8 +311,8 @@ func (c *UserContainer) ToPodPortmappings(ignoreError bool) ([]*PortMapping, err
 	result := []*PortMapping{}
 	for _, pc := range c.Ports {
 		pp := &PortMapping{
-			HostPort:      strconv.Itoa(pc.HostPort),
-			ContainerPort: strconv.Itoa(pc.ContainerPort),
+			HostPort:      strconv.Itoa(int(pc.HostPort)),
+			ContainerPort: strconv.Itoa(int(pc.ContainerPort)),
 			Protocol:      strings.ToLower(pc.Protocol),
 		}
 		if pp.Protocol == "" {

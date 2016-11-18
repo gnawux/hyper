@@ -24,7 +24,7 @@ var (
 	ServiceConfig string = "haproxy.cfg"
 )
 
-func UpdateLoopbackAddress(vm *hypervisor.Vm, container string, oldServices, newServices []apitypes.UserService) error {
+func UpdateLoopbackAddress(vm *hypervisor.Vm, container string, oldServices, newServices []*apitypes.UserService) error {
 	addedIPs := make([]string, 0, 1)
 	deletedIPs := make([]string, 0, 1)
 
@@ -99,7 +99,7 @@ func SetupLoopbackAddress(vm *hypervisor.Vm, container, ip, operation string) er
 	return nil
 }
 
-func ApplyServices(vm *hypervisor.Vm, container string, services []apitypes.UserService) error {
+func ApplyServices(vm *hypervisor.Vm, container string, services []*apitypes.UserService) error {
 	// Update lo ip addresses
 	oldServices, err := GetServices(vm, container)
 	if err != nil {
@@ -112,12 +112,12 @@ func ApplyServices(vm *hypervisor.Vm, container string, services []apitypes.User
 
 	// Update haproxy config
 	config := path.Join(ServiceVolume, ServiceConfig)
-	vm.WriteFile(container, config, GenerateServiceConfig(services))
+	 vm.WriteFile(container, config, GenerateServiceConfig(services))
 
 	return vm.KillContainer(container, linuxsignal.SIGHUP)
 }
 
-func GetServices(vm *hypervisor.Vm, container string) ([]apitypes.UserService, error) {
+func GetServices(vm *hypervisor.Vm, container string) ([]*apitypes.UserService, error) {
 	var services []*apitypes.UserService
 	config := path.Join(ServiceVolume, ServiceConfig)
 
@@ -150,7 +150,7 @@ func GetServices(vm *hypervisor.Vm, container string) ([]apitypes.UserService, e
 				if err != nil {
 					return nil, err
 				}
-				s.ServicePort = int(port)
+				s.ServicePort = int32(port)
 
 				services = append(services, s)
 			} else if string(first[0][:]) == "\tserver" {
@@ -167,7 +167,7 @@ func GetServices(vm *hypervisor.Vm, container string) ([]apitypes.UserService, e
 				if err != nil {
 					return nil, err
 				}
-				h.HostPort = int(port)
+				h.HostPort = int32(port)
 
 				idxs := strings.Split(t2, "-")
 				idxLong, err := strconv.ParseInt(idxs[1], 10, 32)

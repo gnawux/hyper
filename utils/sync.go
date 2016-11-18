@@ -56,7 +56,7 @@ type FutureSet struct {
 }
 
 var (
-	Timeout    = fmt.Errorf("timeout")
+	ErrTimeout = fmt.Errorf("timeout")
 	BrokenChan = fmt.Errorf("Unexpected broken chan")
 )
 
@@ -93,9 +93,9 @@ func (fs *FutureSet) Add(id string, op func() error) {
 }
 
 func (fs *FutureSet) Wait(timeout time.Duration) error {
-	var toc <-chan time
+	var toc <-chan time.Time
 	if int64(timeout) < 0 {
-		toc = make(chan time)
+		toc = make(chan time.Time)
 	} else {
 		toc = time.After(timeout)
 	}
@@ -114,7 +114,7 @@ func (fs *FutureSet) Wait(timeout time.Duration) error {
 				errs[r.id] = r.err
 			}
 		case <-toc:
-			return Timeout
+			return ErrTimeout
 		}
 	}
 	if len(errs) > 0 {
