@@ -53,9 +53,10 @@ type LogStatus struct {
 	LogPath string
 }
 
-func NewPodFactory(vmFactory factory.Factory, sd PodStorage, eng ContainerEngine, logCfg *GlobalLogConfig) *PodFactory {
+func NewPodFactory(vmFactory factory.Factory, registry *PodList, sd PodStorage, eng ContainerEngine, logCfg *GlobalLogConfig) *PodFactory {
 	return &PodFactory{
 		sd:        sd,
+		registry:  registry,
 		engine:    eng,
 		vmFactory: vmFactory,
 		hosts:     nil,
@@ -64,7 +65,12 @@ func NewPodFactory(vmFactory factory.Factory, sd PodStorage, eng ContainerEngine
 }
 
 func initLogCreator(factory *PodFactory, spec *apitypes.UserPod) logger.Creator {
-	if spec.Log.Type == "" {
+	if spec.Log == nil {
+		spec.Log = &apitypes.PodLogConfig{
+			Type:   factory.logCfg.Type,
+			Config: factory.logCfg.Config,
+		}
+	} else if spec.Log.Type == "" {
 		spec.Log.Type = factory.logCfg.Type
 		spec.Log.Config = factory.logCfg.Config
 	}

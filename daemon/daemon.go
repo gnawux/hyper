@@ -81,7 +81,7 @@ func (daemon *Daemon) Restore() error {
 			glog.V(1).Infof("no existing VM for pod %s: %v", podId, err)
 		}
 
-		fc := pod.NewPodFactory(daemon.Factory, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
+		fc := pod.NewPodFactory(daemon.Factory, daemon.PodList, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
 
 		p, err := pod.LoadXPod(fc, &podSpec, vmId)
 		if err != nil {
