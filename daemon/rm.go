@@ -37,8 +37,9 @@ func (daemon *Daemon) RemovePod(podId string) (int, string, error) {
 }
 
 func (daemon *Daemon) RemoveContainer(nameOrId string) error {
-	p, id, err := daemon.PodList.GetByContainerIdOrName(nameOrId)
-	if err != nil {
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(nameOrId)
+	if !ok {
+		err := fmt.Errorf("cannot find container %s", nameOrId)
 		glog.Error(err)
 		return err
 	}

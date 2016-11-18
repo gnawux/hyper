@@ -3,14 +3,15 @@ package daemon
 import (
 	"io"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/golang/glog"
+	"fmt"
 )
 
 func (daemon *Daemon) ExitCode(containerId, execId string) (int, error) {
 
-	p, id, err := daemon.PodList.GetByContainerIdOrName(containerId)
-	if err != nil {
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(containerId)
+	if !ok {
+		err := fmt.Errorf("cannot find container %s", containerId)
 		glog.Error(err)
 		return 255, err
 	}
@@ -23,8 +24,9 @@ func (daemon *Daemon) ExitCode(containerId, execId string) (int, error) {
 
 func (daemon *Daemon) CreateExec(containerId, cmd string, terminal bool) (string, error) {
 
-	p, id, err := daemon.PodList.GetByContainerIdOrName(containerId)
-	if err != nil {
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(containerId)
+	if !ok {
+		err := fmt.Errorf("cannot find container %s", containerId)
 		glog.Error(err)
 		return "", err
 	}
@@ -34,10 +36,11 @@ func (daemon *Daemon) CreateExec(containerId, cmd string, terminal bool) (string
 }
 
 func (daemon *Daemon) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId, execId string) error {
-	p, id, err := daemon.PodList.GetByContainerIdOrName(containerId)
-	if err != nil {
+	p, id, ok := daemon.PodList.GetByContainerIdOrName(containerId)
+	if !ok {
+		err := fmt.Errorf("cannot find container %s", containerId)
 		glog.Error(err)
-		return "", err
+		return err
 	}
 
 	glog.V(1).Infof("Start Exec for container %s", containerId)

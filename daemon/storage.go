@@ -304,7 +304,7 @@ func (a *AufsStorage) InjectFile(src io.Reader, containerId, target, baseDir str
 	_, err := aufs.MountContainerToSharedDir(containerId, a.RootPath(), baseDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return nil, err
+		return err
 	}
 	defer aufs.Unmount(filepath.Join(baseDir, containerId, "rootfs"))
 
@@ -375,7 +375,7 @@ func (o *OverlayFsStorage) InjectFile(src io.Reader, containerId, target, baseDi
 	_, err := overlay.MountContainerToSharedDir(containerId, o.RootPath(), baseDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
-		return nil, err
+		return err
 	}
 	defer syscall.Unmount(filepath.Join(baseDir, containerId, "rootfs"), 0)
 

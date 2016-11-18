@@ -30,7 +30,7 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			}
 			return false, false
 		}
-		append(matchers, m)
+		matchers = append(matchers, m)
 	}
 
 	if podId != "" {
@@ -64,11 +64,12 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 			}
 		}
 	} else if len(matchers) == 0 {
-		daemon.PodList.Foreach(func(p *pod.XPod) {
+		daemon.PodList.Foreach(func(p *pod.XPod) error {
 			pl = append(pl, p)
+			return nil
 		})
 	} else {
-		daemon.PodList.Find(func(p *pod.XPod) {
+		daemon.PodList.Find(func(p *pod.XPod) bool {
 			var (
 				match = true
 				quit  = false

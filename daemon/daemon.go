@@ -83,7 +83,7 @@ func (daemon *Daemon) Restore() error {
 
 		fc := pod.NewPodFactory(daemon.Factory, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
 
-		p, err := pod.LoadXPod(fc, podSpec, vmId)
+		p, err := pod.LoadXPod(fc, &podSpec, vmId)
 		if err != nil {
 			glog.Warningf("Got a unexpected error when creating(load) pod %s, %v", podId, err)
 			continue

@@ -5,7 +5,6 @@ import (
 	"syscall"
 
 	"github.com/golang/glog"
-	"github.com/hyperhq/runv/hypervisor/types"
 )
 
 func (daemon *Daemon) KillContainer(name string, sig int64) error {

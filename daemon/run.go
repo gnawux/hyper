@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/golang/glog"
 
 	"github.com/hyperhq/hyperd/daemon/pod"
@@ -30,7 +29,7 @@ func (daemon *Daemon) CreatePod(podId string, podSpec *apitypes.UserPod) (*pod.X
 	}
 
 	if err := podSpec.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	factory := pod.NewPodFactory(daemon.Factory, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
@@ -96,7 +95,7 @@ func (daemon *Daemon) SetPodLabels(pn string, override bool, labels map[string]s
 		return fmt.Errorf("Can not get Pod %s info", pn)
 	}
 
-	err := p.SetLabel(labels, pn)
+	err := p.SetLabel(labels, override)
 	if err != nil {
 		return err
 	}
