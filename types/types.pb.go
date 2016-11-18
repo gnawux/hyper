@@ -1098,8 +1098,8 @@ func (*UserUser) ProtoMessage()    {}
 
 type Ulimit struct {
 	Name string `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
-	Hard int64  `protobuf:"varint,2,opt,name=Hard,proto3" json:"Hard,omitempty"`
-	Soft int64  `protobuf:"varint,3,opt,name=Soft,proto3" json:"Soft,omitempty"`
+	Hard uint64 `protobuf:"varint,2,opt,name=Hard,proto3" json:"Hard,omitempty"`
+	Soft uint64 `protobuf:"varint,3,opt,name=Soft,proto3" json:"Soft,omitempty"`
 }
 
 func (m *Ulimit) Reset()         { *m = Ulimit{} }

@@ -86,7 +86,7 @@ func (p *XPod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId
 		}
 
 		p.Log(DEBUG, "exec %s of container %s terminated at %v with code %d", execId, containerId, r.FinishedAt, r.Code)
-		es.ExitCode = r.Code
+		es.ExitCode = uint8(r.Code)
 	}(es)
 
 	return p.sandbox.Exec(es.Container, es.Id, es.Cmds, es.Terminal, tty)

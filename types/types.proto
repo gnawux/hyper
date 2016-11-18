@@ -380,8 +380,8 @@ message UserUser {
 
 message Ulimit {
   string Name = 1;
-  int64  Hard = 2;
-  int64  Soft = 3;
+  uint64 Hard = 2;
+  uint64 Soft = 3;
 }
 
 message UserContainer {

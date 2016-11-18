@@ -35,7 +35,7 @@ func newVolume(p *XPod, spec *apitypes.UserVolume) *Volume {
 	return &Volume{
 		p:                 p,
 		spec:              spec,
-		insertSubscribers: []*sync.WaitGroup{},
+		insertSubscribers: []*utils.WaitGroupWithFail{},
 	}
 }
 
@@ -104,7 +104,7 @@ func (v *Volume) add() error {
 // insert() should only called by add(), and not expose to outside
 // the class.
 func (v *Volume) insert() error {
-	r := v.p.sandbox.AddVolume()
+	r := v.p.sandbox.AddVolume(v.descript)
 	if !r.IsSuccess() {
 		err := fmt.Errorf("failed to insert: %s", r.Message())
 		v.Log(ERROR, err)

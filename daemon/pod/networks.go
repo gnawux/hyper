@@ -20,7 +20,7 @@ type Interface struct {
 
 func newInterface(p *XPod, spec *apitypes.UserInterface) *Interface {
 	if spec.Ifname == "" {
-		spec.Ifname == DEFAULT_INTERFACE_NAME
+		spec.Ifname = DEFAULT_INTERFACE_NAME
 	}
 	return &Interface{p: p, spec: spec}
 }

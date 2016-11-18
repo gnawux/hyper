@@ -26,7 +26,7 @@ import (
 	runvtypes "github.com/hyperhq/runv/hypervisor/types"
 )
 
-const epocZero = time.Time{}
+var epocZero = time.Time{}
 
 type ContainerState int32
 
@@ -109,9 +109,9 @@ func (c *Container) hasTty() bool {
 	return c.spec.Tty
 }
 
-func (c *Container) CreatedAt() string {
+func (c *Container) CreatedAt() time.Time {
 	c.status.RLock()
-	ct := c.status.CreatedAt.Format(time.RFC3339)
+	ct := c.status.CreatedAt
 	c.status.RUnlock()
 	return ct
 }
@@ -187,7 +187,7 @@ func (c *Container) InfoStatus() *apitypes.ContainerStatus {
 		if c.status.FinishedAt != epocZero {
 			s.Terminated.StartedAt = c.status.StartedAt.Format(time.RFC3339)
 			s.Terminated.FinishedAt = c.status.FinishedAt.Format(time.RFC3339)
-			s.Terminated.ExitCode = c.status.ExitCode
+			s.Terminated.ExitCode = int32(c.status.ExitCode)
 			if c.status.ExitCode == 0 {
 				s.Terminated.Reason = "Succeeded"
 				s.Phase = "succeeded"
@@ -496,14 +496,14 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 		Workdir: cjson.Config.WorkingDir,
 		Path:    cjson.Path,
 		Args:    cjson.Args,
-		Rlimits: []*runv.Rlimit{},
+		Rlimits: make([]*runv.Rlimit, 0, len(c.spec.Ulimits)),
 
 		StopSignal: strings.ToUpper(cjson.Config.StopSignal),
 	}
 
 	for _, l := range c.spec.Ulimits {
 		ltype := strings.ToLower(l.Name)
-		append(cdesc.Rlimits, &runv.Rlimit{
+		cdesc.Rlimits = append(cdesc.Rlimits, &runv.Rlimit{
 			Type: ltype,
 			Hard: l.Hard,
 			Soft: l.Soft,
@@ -537,7 +537,7 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 	return cdesc, nil
 }
 
-func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*runv.VolumeReference {
+func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string][]*runv.VolumeReference {
 
 	var (
 		existed = make(map[string]*apitypes.UserVolume)
@@ -570,7 +570,7 @@ func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*r
 		}
 
 		n := c.spec.Id + strings.Replace(tgt, "/", "_", -1)
-		v := apitypes.UserVolume{
+		v := &apitypes.UserVolume{
 			Name:   n,
 			Source: "",
 		}
@@ -581,7 +581,7 @@ func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*r
 			Detail:   v,
 		}
 
-		c.spec.Volumes = append(c.spec.Volumes, r)
+		c.spec.Volumes = append(c.spec.Volumes, &r)
 		refs[n] = []*runv.VolumeReference{{
 			Path:     tgt,
 			Name:     n,
@@ -602,13 +602,13 @@ func (c *Container) configEtcHosts() {
 
 	for _, v := range c.spec.Volumes {
 		if v.Path == hostsPath {
-			return nil
+			return
 		}
 	}
 
 	for _, f := range c.spec.Files {
 		if f.Path == hostsPath {
-			return nil
+			return
 		}
 	}
 
@@ -640,7 +640,7 @@ func (c *Container) createVolumes() error {
 	defer func() {
 		if err != nil {
 			for _, v := range created {
-				c.p.factory.sd.RemoveVolume(c.p.Id(), v)
+				c.p.factory.sd.RemoveVolume(c.p.Id(), []byte(v))
 			}
 		}
 	}()
@@ -790,7 +790,7 @@ func (c *Container) addToSandbox() error {
 		volmap = make(map[string]bool)
 		wg     = &utils.WaitGroupWithFail{}
 	)
-	for _, v := range c.spec.Volumes() {
+	for _, v := range c.spec.Volumes {
 		if volmap[v.Volume] {
 			continue
 		}

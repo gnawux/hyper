@@ -52,7 +52,7 @@ func LoadXPod(factory *PodFactory, spec *apitypes.UserPod, sandboxId string) (*X
 	}
 
 	// don't need to reserve name again, because this is load
-	return p
+	return p, nil
 }
 
 func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
@@ -227,7 +227,7 @@ func (p *XPod) Start() error {
 
 func (p *XPod) createSandbox(spec *apitypes.UserPod) error {
 	//in the future, here
-	sandbox, err := startSandbox(p.factory.vmFactory, spec.Resource.Vcpu, spec.Resource.Memory, "", "")
+	sandbox, err := startSandbox(p.factory.vmFactory, int(spec.Resource.Vcpu), int(spec.Resource.Memory), "", "")
 	if err != nil {
 		p.Log(ERROR, err)
 		return err
@@ -360,7 +360,7 @@ func (p *XPod) initResources(spec *apitypes.UserPod, allowCreate bool) error {
 	}
 
 	if len(spec.Interfaces) == 0 {
-		spec.Interfaces = append(spec.Interfaces, &*apitypes.UserInterface{})
+		spec.Interfaces = append(spec.Interfaces, &apitypes.UserInterface{})
 	}
 	for _, nspec := range spec.Interfaces {
 		inf := newInterface(p, nspec)

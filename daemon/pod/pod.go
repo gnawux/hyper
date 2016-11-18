@@ -227,7 +227,7 @@ func (p *XPod) ContainerInfo(cid string) (*apitypes.ContainerInfo, error) {
 		ci := &apitypes.ContainerInfo{
 			PodID:     p.Id(),
 			Container: c.Info(),
-			CreatedAt: c.CreatedAt(),
+			CreatedAt: c.CreatedAt().Unix(),
 			Status:    c.InfoStatus(),
 		}
 		return ci, nil
@@ -274,7 +274,8 @@ func (p *XPod) initPodInfo() {
 	if p.sandbox != nil {
 		info.Vm = p.sandbox.Id
 	}
-	return info, nil
+
+	p.info = info
 }
 
 func (p *XPod) updatePodInfo() error {
@@ -380,7 +381,7 @@ func (p *XPod) ContainerNames() []string {
 	return result
 }
 
-func (p *XPod) ContainerIdsOf(ctype int32) []string {
+func (p *XPod) ContainerIdsOf(ctype apitypes.UserContainer_ContainerType) []string {
 	result := make([]string, 0, len(p.containers))
 	for cid, c := range p.containers {
 		if c.spec.Type == ctype {
@@ -475,7 +476,7 @@ func (p *XPod) WaitContainer(cid string, second int) (int, error) {
 	r, ok := <-ch
 	if !ok {
 		err := fmt.Errorf("break")
-		c.Log("chan broken while waiting container")
+		c.Log(ERROR, "chan broken while waiting container")
 		return -1, err
 	}
 	c.Log(INFO, "container stopped: %v", r.Code)
@@ -509,6 +510,6 @@ func (p *XPod) RenameContainer(cid, name string) error {
 	}
 
 	p.Log(INFO, "rename container from %s to %s", old, name)
-	p.factory.registry.ReleaseContainer(old)
+	p.factory.registry.ReleaseContainerName(old)
 	return nil
 }

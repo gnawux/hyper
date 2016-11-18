@@ -57,7 +57,7 @@ func (pl *PodList) ReserveContainer(id, name, pod string) error {
 	}
 	if id != "" {
 		if pn, ok := pl.containers[id]; ok && pn != pod {
-			return nil, fmt.Errorf("the container id %s has already taken by pod %s", id, pn)
+			return fmt.Errorf("the container id %s has already taken by pod %s", id, pn)
 		}
 		pl.containers[id] = pod
 	}
@@ -165,7 +165,7 @@ func (pl *PodList) CountAll() int64 {
 	return int64(len(pl.pods))
 }
 
-func (pl *PodList) CountStatus(status ContainerState) (num int64) {
+func (pl *PodList) CountStatus(status PodState) (num int64) {
 	num = 0
 
 	pl.mu.RLock()

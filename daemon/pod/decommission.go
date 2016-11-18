@@ -107,7 +107,7 @@ func (p *XPod) Remove(force bool) error {
 
 	if p.ShouldWaitCleanUp() {
 		p.Log(DEBUG, "should wait clean up before being purged")
-		return
+		return nil
 	}
 
 	os.RemoveAll(path.Join(utils.HYPER_ROOT, "services", p.Id()))
@@ -333,7 +333,11 @@ func (p *XPod) protectedSandboxOperation(op sandboxOp, timeout time.Duration, co
 			err := recover()
 			if err != nil {
 				p.Log(ERROR, err)
-				errChan <- err
+				if re, ok := err.(error); ok {
+					errChan <- re
+				} else {
+					errChan <- fmt.Errorf("%v", err)
+				}
 			}
 		}()
 
@@ -523,7 +527,7 @@ func (p *XPod) cleanup() {
 		p.status = S_POD_ERROR
 		p.statusLock.Unlock()
 		p.Log(ERROR, "pod stopping failed, failed to decommit the resources: %v", err)
-		return err
+		return
 	}
 
 	p.Log(INFO, "pod stopped")

@@ -51,7 +51,7 @@ func (p *XPod) GetServices() ([]*apitypes.UserService, error) {
 }
 
 func (p *XPod) UpdateService(srvs []*apitypes.UserService) error {
-	if !p.globalSpec.Type == "service-discovery" {
+	if p.globalSpec.Type != "service-discovery" {
 		err := fmt.Errorf("pod does not support service discovery")
 		p.Log(ERROR, err)
 		return err
@@ -71,7 +71,7 @@ func (p *XPod) UpdateService(srvs []*apitypes.UserService) error {
 }
 
 func (p *XPod) AddService(srvs []*apitypes.UserService) error {
-	if !p.globalSpec.Type == "service-discovery" {
+	if p.globalSpec.Type != "service-discovery" {
 		err := fmt.Errorf("pod does not support service discovery")
 		p.Log(ERROR, err)
 		return err
@@ -93,7 +93,7 @@ func (p *XPod) AddService(srvs []*apitypes.UserService) error {
 }
 
 func (p *XPod) DeleteService(srvs []*apitypes.UserService) error {
-	if !p.globalSpec.Type == "service-discovery" {
+	if p.globalSpec.Type != "service-discovery" {
 		err := fmt.Errorf("pod does not support service discovery")
 		p.Log(ERROR, err)
 		return err
