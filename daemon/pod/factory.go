@@ -65,12 +65,7 @@ func NewPodFactory(vmFactory factory.Factory, registry *PodList, sd PodStorage, 
 }
 
 func initLogCreator(factory *PodFactory, spec *apitypes.UserPod) logger.Creator {
-	if spec.Log == nil {
-		spec.Log = &apitypes.PodLogConfig{
-			Type:   factory.logCfg.Type,
-			Config: factory.logCfg.Config,
-		}
-	} else if spec.Log.Type == "" {
+	if spec.Log.Type == "" {
 		spec.Log.Type = factory.logCfg.Type
 		spec.Log.Config = factory.logCfg.Config
 	}

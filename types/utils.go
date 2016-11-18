@@ -44,6 +44,16 @@ func (p *UserPod) CloneGlobalPart() *UserPod {
 }
 
 func (p *UserPod) ReorganizeContainers(allowAbsent bool) error {
+	if p.Log == nil {
+		p.Log = &PodLogConfig{}
+	}
+	if p.Resource == nil {
+		p.Resource = &UserResource{}
+	}
+	if p.PortmappingWhiteLists == nil {
+		p.PortmappingWhiteLists = &PortmappingWhiteList{}
+	}
+
 	volumes := make(map[string]*UserVolume)
 	files := make(map[string]*UserFile)
 	for _, vol := range p.Volumes {
