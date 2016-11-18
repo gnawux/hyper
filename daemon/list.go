@@ -9,6 +9,18 @@ import (
 
 type pMatcher func(p *pod.XPod) (match, quit bool)
 
+func (daemon *Daemon) ListContainers(podId, vmId string, auxiliary bool) ([]*apitypes.ContainerListResult, error) {
+	return nil, nil
+}
+
+func (daemon *Daemon) ListPods(podId, vmId string) ([]*apitypes.PodListResult, error) {
+	return nil, nil
+}
+
+func (daemon *Daemon) ListVMs(podId, vmId string) ([]*apitypes.VMListResult, error) {
+	return nil, nil
+}
+
 func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string][]string, error) {
 	var (
 		pl       = []*pod.XPod{}

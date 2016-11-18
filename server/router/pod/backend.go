@@ -20,6 +20,4 @@ type Backend interface {
 	CmdStopPod(podId, stopVm string) (*engine.Env, error)
 	CmdKillPod(podName, container string, signal int64) (*engine.Env, error)
 	CmdCleanPod(podId string) (*engine.Env, error)
-	CmdCreateVm(cpu, mem int, async bool) (*engine.Env, error)
-	CmdKillVm(vmId string) (*engine.Env, error)
 }

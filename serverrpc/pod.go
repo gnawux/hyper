@@ -21,7 +21,7 @@ func (s *ServerRPC) PodCreate(ctx context.Context, req *types.PodCreateRequest) 
 	}
 
 	return &types.PodCreateResponse{
-		PodID: p.Name,
+		PodID: p.Id(),
 	}, nil
 }
 
@@ -37,7 +37,7 @@ func (s *ServerRPC) PodStart(stream types.PublicAPI_PodStartServer) error {
 	glog.V(3).Infof("PodStart with request %s", req.String())
 
 	if !req.Attach {
-		_, _, err := s.daemon.StartPod(nil, nil, req.PodID, req.VmID, req.Attach)
+		_, _, err := s.daemon.StartPod(nil, nil, req.PodID, req.Attach)
 		if err != nil {
 			glog.Errorf("StartPod failed: %v", err)
 			return err
@@ -82,7 +82,7 @@ func (s *ServerRPC) PodStart(stream types.PublicAPI_PodStartServer) error {
 		}
 	}()
 
-	if _, _, err := s.daemon.StartPod(ir, ow, req.PodID, req.VmID, req.Attach); err != nil {
+	if _, _, err := s.daemon.StartPod(ir, ow, req.PodID, req.Attach); err != nil {
 		glog.Errorf("StartPod failed: %v", err)
 		return err
 	}

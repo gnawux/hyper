@@ -20,7 +20,6 @@ import (
 	"github.com/golang/glog"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
-	"github.com/hyperhq/runv/hypervisor"
 )
 
 // ContainerAttach attaches streams to the container cID. If stream is true, it streams the output.
@@ -175,8 +174,6 @@ func (d Docker) BuilderCopy(cId string, destPath string, src builder.FileInfo, d
 }
 
 func (d Docker) ContainerStart(cId string, hostConfig *containertypes.HostConfig) (err error) {
-	var vm *hypervisor.Vm
-
 	podId := ""
 	if _, ok := d.hyper.CopyPods[cId]; ok {
 		podId = d.hyper.CopyPods[cId]
@@ -193,7 +190,7 @@ func (d Docker) ContainerStart(cId string, hostConfig *containertypes.HostConfig
 		}
 	}()
 
-	if _, _, err = d.Daemon.StartPod(nil, nil, podId, vm.Id, false); err != nil {
+	if _, _, err = d.Daemon.StartPod(nil, nil, podId, false); err != nil {
 		return
 	}
 
@@ -256,21 +253,21 @@ func MakeCopyPod(podId string, config *containertypes.Config) (*apitypes.UserPod
 	tempSrcDir := filepath.Join("/var/run/hyper/temp/", podId)
 	if err := os.MkdirAll(tempSrcDir, 0755); err != nil {
 		glog.Errorf(err.Error())
-		return "", err
+		return nil, err
 	}
 	if _, err := os.Stat(tempSrcDir); err != nil {
 		glog.Errorf(err.Error())
-		return "", err
+		return nil, err
 	}
 	shellDir := filepath.Join("/var/run/hyper/shell/", podId)
 	if err := os.MkdirAll(shellDir, 0755); err != nil {
 		glog.Errorf(err.Error())
-		return "", err
+		return nil, err
 	}
 	copyshell, err1 := os.Create(filepath.Join(shellDir, "exec-copy.sh"))
 	if err1 != nil {
 		glog.Errorf(err1.Error())
-		return "", err1
+		return nil, err1
 	}
 
 	fmt.Fprintf(copyshell, "#!/bin/sh\n")
@@ -285,7 +282,7 @@ func MakeBasicPod(podId string, config *containertypes.Config) (*apitypes.UserPo
 
 func MakePod(podId, src, shellDir string, config *containertypes.Config, cmds, entrys []string) (*apitypes.UserPod, error) {
 	if config.Image == "" {
-		return "", fmt.Errorf("image can not be null")
+		return nil, fmt.Errorf("image can not be null")
 	}
 
 	var (
@@ -295,25 +292,25 @@ func MakePod(podId, src, shellDir string, config *containertypes.Config, cmds, e
 		cVols         = []*apitypes.UserVolumeReference{}
 	)
 	if src != "" {
-		myVol1 := *apitypes.UserVolumeReference{
+		myVol1 := &apitypes.UserVolumeReference{
 			Path:     "/tmp/src/",
 			Volume:   "source",
 			ReadOnly: false,
 		}
-		myVol2 := *apitypes.UserVolumeReference{
+		myVol2 := &apitypes.UserVolumeReference{
 			Path:     "/tmp/shell/",
 			Volume:   "shell",
 			ReadOnly: false,
 		}
 		cVols = append(cVols, myVol1)
 		cVols = append(cVols, myVol2)
-		vol1 := *apitypes.UserVolume{
+		vol1 := &apitypes.UserVolume{
 			Name:   "source",
 			Source: src,
 			Format: "vfs",
 			Fstype: "dir",
 		}
-		vol2 := *apitypes.UserVolume{
+		vol2 := &apitypes.UserVolume{
 			Name:   "shell",
 			Source: shellDir,
 			Format: "vfs",
@@ -323,7 +320,7 @@ func MakePod(podId, src, shellDir string, config *containertypes.Config, cmds, e
 		volList = append(volList, vol2)
 	}
 
-	var container = *apitypes.UserContainer{
+	var container = &apitypes.UserContainer{
 		Image:         config.Image,
 		Command:       cmds,
 		Workdir:       config.WorkingDir,
@@ -337,21 +334,14 @@ func MakePod(podId, src, shellDir string, config *containertypes.Config, cmds, e
 	}
 	containerList = append(containerList, container)
 
-	var userPod = &apitypes.UserPod{
+	return &apitypes.UserPod{
 		Id:         podId,
 		Containers: containerList,
-		Resource:   *apitypes.UserResource{Vcpu: 1, Memory: 512},
+		Resource:   &apitypes.UserResource{Vcpu: 1, Memory: 512},
 		Files:      []*apitypes.UserFile{},
 		Volumes:    volList,
 		Tty:        config.Tty,
-	}
-
-	jsonString, err := utils.JSONMarshal(userPod, true)
-	if err != nil {
-		return "", err
-	}
-
-	return string(jsonString), nil
+	}, nil
 }
 
 func (d Docker) ContainerRm(name string, config *types.ContainerRmConfig) error {

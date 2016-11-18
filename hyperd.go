@@ -102,7 +102,7 @@ func mainDaemon(opt *Options) {
 	if c == nil {
 		return
 	}
-	c.DisableIptables == c.DisableIptables || opt.DisableIptables
+	c.DisableIptables = c.DisableIptables || opt.DisableIptables
 
 	c.AdvertiseEnv()
 	if _, err := os.Stat(c.Root); err != nil {

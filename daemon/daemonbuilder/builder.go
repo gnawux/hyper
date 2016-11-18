@@ -42,7 +42,6 @@ func (d *Docker) InitHyper() {
 		make(map[string]string),
 		make(map[string]string),
 		make(chan bool, 1),
-		nil, nil,
 	}
 }
 

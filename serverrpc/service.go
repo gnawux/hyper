@@ -3,7 +3,6 @@ package serverrpc
 import (
 	"github.com/golang/glog"
 	"github.com/hyperhq/hyperd/types"
-	"github.com/hyperhq/runv/hypervisor/pod"
 	"golang.org/x/net/context"
 )
 
