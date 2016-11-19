@@ -224,8 +224,8 @@ func (v *Volume) unlockedTransit(to VolumeState, from, ignore map[VolumeState]bo
 		v.Log(DEBUG, "does not transit volume from state %v to %v, ignored", v.status, to)
 		return false, nil
 	} else if from[v.status] {
-		v.status = to
 		v.Log(DEBUG, "transit volume from state %v to %v, ok", v.status, to)
+		v.status = to
 		return true, nil
 	}
 	err := fmt.Errorf("cannot transit volume from state %v to %v", v.status, to)
