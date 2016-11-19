@@ -3,7 +3,7 @@ package pod
 import (
 	"time"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/runv/factory"
 	"github.com/hyperhq/runv/hypervisor"
 	runvtypes "github.com/hyperhq/runv/hypervisor/types"

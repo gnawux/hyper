@@ -3,7 +3,7 @@ package pod
 import (
 	"fmt"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	apitypes "github.com/hyperhq/hyperd/types"
 	runv "github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"

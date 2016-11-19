@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/hyperd/servicediscovery"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"

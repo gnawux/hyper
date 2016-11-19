@@ -40,7 +40,7 @@ func HLog(level LogLevel, owner interface{}, depth int, args ...interface{}) {
 	l(depth+1, append([]interface{}{prefix}, args...)...)
 }
 
-func LogLevel(level LogLevel) bool {
+func IsLogLevel(level LogLevel) bool {
 	if level >= INFO {
 		return true
 	} else if level == DEBUG {

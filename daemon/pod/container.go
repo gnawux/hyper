@@ -18,7 +18,7 @@ import (
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/strslice"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	runv "github.com/hyperhq/runv/api"

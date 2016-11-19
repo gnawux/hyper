@@ -9,7 +9,7 @@ import (
 
 	"github.com/docker/docker/daemon/logger"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
@@ -74,13 +74,13 @@ type XPod struct {
 
 // The Log infrastructure, to add pod name as prefix of the log message.
 
-// LogPrefix() belongs to the interface `github.com/hyperhq/hyperd/lib/hlog.LogOwner`, which helps `hlog.HLog` get
+// LogPrefix() belongs to the interface `github.com/hyperhq/hypercontainer-utils/hlog.LogOwner`, which helps `hlog.HLog` get
 // proper prefix from the owner object.
 func (p *XPod) LogPrefix() string {
 	return p.logPrefix
 }
 
-// Log() employ `github.com/hyperhq/hyperd/lib/hlog.HLog` to add pod information to the log
+// Log() employ `github.com/hyperhq/hypercontainer-utils/hlog.HLog` to add pod information to the log
 func (p *XPod) Log(level hlog.LogLevel, args ...interface{}) {
 	hlog.HLog(level, p, 1, args...)
 }

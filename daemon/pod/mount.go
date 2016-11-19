@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/hyperd/storage"
 	dm "github.com/hyperhq/hyperd/storage/devicemapper"
 	apitypes "github.com/hyperhq/hyperd/types"

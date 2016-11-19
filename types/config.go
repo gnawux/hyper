@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Unknwon/goconfig"
-	"github.com/hyperhq/hyperd/lib/hlog"
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/hyperd/utils"
 )
 
