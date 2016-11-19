@@ -798,6 +798,7 @@ func (c *Container) addToSandbox() error {
 		volmap = make(map[string]bool)
 		wg     = &utils.WaitGroupWithFail{}
 	)
+	c.status.Create()
 	for _, v := range c.spec.Volumes {
 		if volmap[v.Volume] {
 			continue
@@ -830,9 +831,11 @@ func (c *Container) addToSandbox() error {
 	if !r.IsSuccess() {
 		err := fmt.Errorf("failed to add container to sandbox: %s", r.Message())
 		c.Log(ERROR, err)
+		c.status.UnexpectedStopped()
 		return err
 	}
 
+	c.status.Created(time.Now())
 	return nil
 }
 
