@@ -371,15 +371,15 @@ func (o *OverlayFsStorage) CleanupContainer(id, sharedDir string) error {
 	return syscall.Unmount(filepath.Join(sharedDir, id, "rootfs"), 0)
 }
 
-func (o *OverlayFsStorage) InjectFile(src io.Reader, containerId, target, baseDir string, perm, uid, gid int) error {
-	_, err := overlay.MountContainerToSharedDir(containerId, o.RootPath(), baseDir, "")
+func (o *OverlayFsStorage) InjectFile(src io.Reader, mountId, target, baseDir string, perm, uid, gid int) error {
+	_, err := overlay.MountContainerToSharedDir(mountId, o.RootPath(), baseDir, "")
 	if err != nil {
 		glog.Error("got error when mount container to share dir ", err.Error())
 		return err
 	}
-	defer syscall.Unmount(filepath.Join(baseDir, containerId, "rootfs"), 0)
+	defer syscall.Unmount(filepath.Join(baseDir, mountId, "rootfs"), 0)
 
-	return storage.FsInjectFile(src, containerId, target, baseDir, perm, uid, gid)
+	return storage.FsInjectFile(src, mountId, target, baseDir, perm, uid, gid)
 }
 
 func (o *OverlayFsStorage) CreateVolume(podId string, spec *apitypes.UserVolume) error {

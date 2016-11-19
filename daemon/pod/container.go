@@ -455,7 +455,7 @@ func (c *Container) createByEngine() (*dockertypes.ContainerJSON, error) {
 		return nil, err
 	}
 
-	c.Log(INFO, "create container %s", ccs.ID)
+	c.Log(INFO, "create container %s (w/: %s)", ccs.ID, ccs.Warnings)
 	if r, err = c.p.factory.engine.ContainerInspect(ccs.ID, false, version.Version("1.21")); err != nil {
 		return nil, err
 	}
@@ -471,7 +471,7 @@ func (c *Container) createByEngine() (*dockertypes.ContainerJSON, error) {
 
 func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.ContainerDescription, error) {
 
-	c.Log(TRACE, "container info config %v, Cmd %v, Args %v", cjson.Config, cjson.Config.Cmd.Slice(), cjson.Args)
+	c.Log(TRACE, "container info config %#v, Cmd %v, Args %v", cjson.Config, cjson.Config.Cmd.Slice(), cjson.Args)
 
 	if c.spec.Image == "" {
 		c.spec.Image = cjson.Config.Image
@@ -484,6 +484,7 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 		c.Log(ERROR, "Cannot find mountID for container %s", err)
 		return nil, err
 	}
+	c.Log(DEBUG, "mount id: %s", mountId)
 
 	cdesc := &runv.ContainerDescription{
 		Id: c.spec.Id,
@@ -764,7 +765,7 @@ func (c *Container) injectFiles() error {
 		default:
 		}
 
-		err := c.p.factory.sd.InjectFile(src, c.spec.Id, targetPath, sharedDir,
+		err := c.p.factory.sd.InjectFile(src, c.descript.MountId, targetPath, sharedDir,
 			utils.PermInt(f.Perm), utils.UidInt(f.User), utils.UidInt(f.Group))
 		if err != nil {
 			c.Log(ERROR, "got error when inject files: %v", err)
