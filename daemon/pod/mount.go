@@ -39,11 +39,14 @@ func ProbeExistingVolume(v *apitypes.UserVolume, sharedDir string) (*runv.Volume
 		Source: v.Source,
 		Format: v.Format,
 		Fstype: v.Fstype,
-		Options: &runv.VolumeOption{
+	}
+
+	if v.Option != nil {
+		vol.Options = &runv.VolumeOption{
 			User:     v.Option.User,
 			Monitors: v.Option.Monitors,
 			Keyring:  v.Option.Keyring,
-		},
+		}
 	}
 
 	if v.Format == "vfs" {

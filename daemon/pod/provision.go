@@ -121,6 +121,7 @@ func newXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 		globalSpec:   spec.CloneGlobalPart(),
 		containers:   make(map[string]*Container),
 		volumes:      make(map[string]*Volume),
+		interfaces:   make(map[string]*Interface),
 		portMappings: spec.Portmappings,
 		labels:       spec.Labels,
 		execs:        make(map[string]*Exec),
