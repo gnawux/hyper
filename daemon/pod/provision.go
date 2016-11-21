@@ -75,6 +75,12 @@ func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil && p.sandbox != nil {
+			p.sandbox.Kill()
+		}
+	}()
+
 	err = p.initResources(spec, true)
 	if err != nil {
 		return nil, err
@@ -127,7 +133,7 @@ func newXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 		execs:        make(map[string]*Exec),
 		resourceLock: &sync.Mutex{},
 		statusLock:   &sync.RWMutex{},
-		cleanChan:    make(chan bool, 1),
+		stoppedChan:  make(chan bool, 1),
 		factory:      factory,
 	}, nil
 }
