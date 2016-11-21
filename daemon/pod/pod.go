@@ -318,6 +318,8 @@ func (p *XPod) updatePodInfo() error {
 		containerStatus = make([]*apitypes.ContainerStatus, 0, len(p.containers))
 	)
 
+	p.info.Spec.Labels = p.labels
+
 	for _, v := range p.volumes {
 		volumes = append(volumes, v.Info())
 	}
@@ -375,6 +377,8 @@ func (p *XPod) ContainerLogger(id string) logger.Logger {
 func (p *XPod) SetLabel(labels map[string]string, update bool) error {
 	p.resourceLock.Lock()
 	defer p.resourceLock.Unlock()
+
+	p.Log(INFO, "update labels (ow: %v): %#v", update, labels)
 
 	if p.labels == nil {
 		p.labels = make(map[string]string)

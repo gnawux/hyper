@@ -145,8 +145,23 @@ func (p *XPod) ContainerCreate(c *apitypes.UserContainer) (string, error) {
 		return "", err
 	}
 
+	if c.Name == "" {
+		_, img, _ := utils.ParseImageRepoTag(c.Image)
+		if !utils.IsDNSLabel(img) {
+			img = ""
+		}
+
+		c.Name = fmt.Sprintf("%s-%s-%s", p.Name(), img, utils.RandStr(10, "alpha"))
+	}
+
+	if err := p.factory.registry.ReserveContainerName(c.Name, p.Id()); err != nil {
+		p.Log(ERROR, "could not reserve name %s: %v", c.Name, err)
+		return "", nil
+	}
+
 	p.resourceLock.Lock()
 	id, err := p.doContainerCreate(c)
+	p.factory.registry.ReserveContainerID(c.Id, p.Id())
 	p.resourceLock.Unlock()
 
 	return id, err

@@ -120,7 +120,7 @@ func (c *Container) Info() *apitypes.Container {
 	c.status.RLock()
 	defer c.status.RUnlock()
 	cinfo := &apitypes.Container{
-		Name:            c.SpecName(),
+		Name:            c.RuntimeName(),
 		ContainerID:     c.Id(),
 		Image:           c.spec.Image,
 		Commands:        c.spec.Command,
@@ -997,29 +997,34 @@ func (c *Container) umountRootVol() error {
 func (c *Container) rename(name string) error {
 	var err error
 	old := c.SpecName()
+	if name[0] == '/' {
+		name = name[1:]
+	}
 	if !utils.DockerRestrictedNamePattern.MatchString(name) {
 		err = fmt.Errorf("Invalid container name (%s), only %s are allowed", name, utils.DockerRestrictedNameChars)
 		c.Log(ERROR, err)
 		return err
 	}
+	if err := c.p.factory.registry.ReserveContainerName(name, c.p.Id()); err != nil {
+		c.Log(ERROR, "failed to reserve new container name %s: %v", name, err)
+		return err
+	}
+	defer func() {
+		if err != nil {
+			c.p.factory.registry.ReleaseContainerName(name)
+		}
+	}()
 	if c.Id() != "" || c.descript != nil {
 		err = c.p.factory.engine.ContainerRename(old, name)
 		if err != nil {
 			return err
 		}
 	}
-	if name[0] == '/' {
-		c.spec.Name = name
-		if c.descript != nil {
-			c.descript.Name = "/" + name
-		}
-	} else {
-		c.spec.Name = name[1:]
-		if c.descript != nil {
-			c.descript.Name = name
-		}
-	}
+	c.p.factory.registry.ReleaseContainerName(old)
 	c.spec.Name = name
+	if c.descript != nil {
+		c.descript.Name = "/" + name
+	}
 	return err
 }
 
