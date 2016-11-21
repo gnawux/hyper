@@ -53,6 +53,12 @@ func (p *UserPod) ReorganizeContainers(allowAbsent bool) error {
 	if p.PortmappingWhiteLists == nil {
 		p.PortmappingWhiteLists = &PortmappingWhiteList{}
 	}
+	if p.Hostname == "" {
+		p.Hostname = p.Id
+	}
+	if len(p.Hostname) > 63 {
+		p.Hostname = p.Hostname[:63]
+	}
 
 	volumes := make(map[string]*UserVolume)
 	files := make(map[string]*UserFile)

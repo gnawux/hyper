@@ -283,6 +283,8 @@ func (s *TestSuite) TestAddListDeleteService(c *C) {
 		},
 	}
 
+	c.Log("begin ===> create pod")
+
 	pod, err := s.client.CreatePod(&spec)
 	c.Assert(err, IsNil)
 
@@ -291,6 +293,8 @@ func (s *TestSuite) TestAddListDeleteService(c *C) {
 		err = s.client.RemovePod(pod)
 		c.Assert(err, IsNil)
 	}()
+
+	c.Log("    2 ===> create pod")
 
 	err = s.client.StartPod(pod, "", false)
 	c.Assert(err, IsNil)
@@ -309,9 +313,11 @@ func (s *TestSuite) TestAddListDeleteService(c *C) {
 		},
 	}
 
+	c.Log("    3 ===> update service")
 	err = s.client.UpdateService(pod, updateService)
 	c.Assert(err, IsNil)
 
+	c.Log("    4 ===> list service")
 	svcList, err := s.client.ListService(pod)
 	c.Assert(err, IsNil)
 	c.Assert(len(svcList), Equals, 1)
@@ -331,16 +337,21 @@ func (s *TestSuite) TestAddListDeleteService(c *C) {
 		},
 	}
 
+	c.Log("    5 ===> add service")
 	err = s.client.AddService(pod, addService)
 	c.Assert(err, IsNil)
+	c.Log("    6 ===> list service")
 	svcList, err = s.client.ListService(pod)
 	c.Assert(err, IsNil)
 	c.Assert(len(svcList), Equals, 2)
 
+	c.Log("    7 ===> delete service")
 	err = s.client.DeleteService(pod, addService)
 	c.Assert(err, IsNil)
+	c.Log("    8 ===> list service")
 	svcList, err = s.client.ListService(pod)
 	c.Assert(len(svcList), Equals, 1)
+	c.Log("last  ===> done")
 }
 
 func (s *TestSuite) TestStartAndStopPod(c *C) {

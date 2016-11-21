@@ -221,6 +221,13 @@ func (vm *Vm) WaitProcess(isContainer bool, ids []string, timeout int) <-chan *a
 							Code:       int(ps.Code),
 							FinishedAt: time.Now().UTC(),
 						}
+						delete(waiting, ps.Id)
+						select {
+						case ps.Ack <- true:
+							vm.ctx.Log(TRACE, "got shut down msg, acked here")
+						default:
+							vm.ctx.Log(TRACE, "got shut down msg, acked somewhere")
+						}
 					}
 				}
 			case <-timeoutChan:
@@ -644,13 +651,16 @@ func (vm *Vm) StartContainer(id string) error {
 	if err != nil {
 		return fmt.Errorf("Create new container failed: %v", err)
 	}
+	vm.ctx.Log(DEBUG, "container %s started, setup stdin if needed", id)
 	vm.GenericOperation("StartNewContainerStdin", func(ctx *VmContext, result chan<- error) {
 		// start stdin. TODO: find the correct idx if parallel multi INIT_NEWCONTAINER
 		if cc, ok := ctx.containers[id]; ok {
 			ctx.ptys.startStdin(cc.process.Stdio, cc.process.Terminal)
 		}
+		result <- nil
 	}, StateInit, StateRunning)
 
+	vm.ctx.Log(DEBUG, "container %s start: done.", id)
 	return nil
 }
 

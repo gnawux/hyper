@@ -225,6 +225,7 @@ func (c *Container) start() error {
 
 	c.Log(INFO, "start container")
 	c.p.sandbox.StartContainer(c.Id())
+	c.Log(DEBUG, "container started")
 
 	return nil
 }
@@ -509,6 +510,11 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 		StopSignal: strings.ToUpper(cjson.Config.StopSignal),
 	}
 
+	//make sure workdir has an initial val
+	if cdesc.Workdir == "" {
+		cdesc.Workdir = "/"
+	}
+
 	for _, l := range c.spec.Ulimits {
 		ltype := strings.ToLower(l.Name)
 		cdesc.Rlimits = append(cdesc.Rlimits, &runv.Rlimit{
@@ -684,6 +690,7 @@ func (c *Container) createVolumes() error {
 
 */
 func (c *Container) configDNS() {
+	c.Log(DEBUG, "configure dns")
 	var (
 		resolvconf = "/etc/resolv.conf"
 		fileId     = c.p.Id() + "-resolvconf"
@@ -741,7 +748,9 @@ func (c *Container) injectFiles() error {
 			targetPath = targetPath + f.Filename
 		}
 
+		c.Log(DEBUG, "inject file %s", targetPath)
 		if f.Detail == nil {
+			c.Log(WARNING, "no file detail available, skip file %s injection", targetPath)
 			continue
 		}
 
@@ -870,7 +879,7 @@ func (c *Container) initLogger() {
 		}
 
 		ctx.LogPath = filepath.Join(prefix, fmt.Sprintf("%s-json.log", c.Id()))
-		c.Log(DEBUG, "configure container log to ", ctx.LogPath)
+		c.Log(DEBUG, "configure container log to %s", ctx.LogPath)
 	}
 
 	driver, err := c.p.factory.logCreator(ctx)

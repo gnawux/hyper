@@ -83,11 +83,15 @@ func SetupLoopbackAddress(vm *hypervisor.Vm, container, ip, operation string) er
 		Callback: make(chan *types.VmResponse, 1),
 	}
 
+	result := vm.WaitProcess(false, []string{execId}, 60)
+	if result == nil {
+		return fmt.Errorf("can not wait %s, id: %s", command, execId)
+	}
+
 	if err := vm.Exec(container, execId, string(execcmd), false, tty); err != nil {
 		return err
 	}
 
-	result := vm.WaitProcess(false, []string{execId}, 60)
 	r, ok := <-result
 	if !ok {
 		return fmt.Errorf("exec failed %s: %s", command, execId)
