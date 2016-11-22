@@ -3,6 +3,7 @@ package daemon
 import (
 	"fmt"
 
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/hyperd/daemon/pod"
 	apitypes "github.com/hyperhq/hyperd/types"
 )
@@ -90,80 +91,19 @@ func (daemon *Daemon) ListVMs(podId, vmId string) ([]*apitypes.VMListResult, err
 
 func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string][]string, error) {
 	var (
-		pl       = []*pod.XPod{}
-		matchers = []pMatcher{}
+		pl = []*pod.XPod{}
 
 		list                  = make(map[string][]string)
 		vmJsonResponse        = []string{}
 		podJsonResponse       = []string{}
 		containerJsonResponse = []string{}
 	)
+	hlog.Log(hlog.INFO, "got list request for %s (pod: %s, vm: %s, include aux container: %v)", item, podId, vmId, auxiliary)
 	if item != "pod" && item != "container" && item != "vm" {
 		return list, fmt.Errorf("Can not support %s list!", item)
 	}
 
-	if vmId != "" {
-		m := func(p *pod.XPod) (match, quit bool) {
-			if p.SandboxName() == vmId {
-				return true, true
-			}
-			return false, false
-		}
-		matchers = append(matchers, m)
-	}
-
-	if podId != "" {
-		p, ok := daemon.PodList.Get(podId)
-		if ok {
-			pl = append(pl, p)
-		}
-	}
-
-	if len(pl) > 0 {
-		xpl := pl
-		pl = []*pod.XPod{}
-
-		if len(matchers) > 0 {
-			for _, p := range xpl {
-				var (
-					match = true
-					quit  = false
-				)
-				for _, matcher := range matchers {
-					m, q := matcher(p)
-					match = match && m
-					quit = quit || q
-				}
-				if match {
-					pl = append(pl, p)
-				}
-				if quit {
-					break
-				}
-			}
-		}
-	} else if len(matchers) == 0 {
-		daemon.PodList.Foreach(func(p *pod.XPod) error {
-			pl = append(pl, p)
-			return nil
-		})
-	} else {
-		daemon.PodList.Find(func(p *pod.XPod) bool {
-			var (
-				match = true
-				quit  = false
-			)
-			for _, matcher := range matchers {
-				m, q := matcher(p)
-				match = match && m
-				quit = quit || q
-			}
-			if match {
-				pl = append(pl, p)
-			}
-			return quit
-		})
-	}
+	pl = daemon.snapshotPodList(podId, vmId)
 
 	for _, p := range pl {
 		if p.IsNone() {
@@ -198,10 +138,13 @@ func (daemon *Daemon) List(item, podId, vmId string, auxiliary bool) (map[string
 	switch item {
 	case "vm":
 		list["vmData"] = vmJsonResponse
+		hlog.Log(hlog.TRACE, "list vm result: %v", vmJsonResponse)
 	case "pod":
 		list["podData"] = podJsonResponse
+		hlog.Log(hlog.TRACE, "list pod result: %v", podJsonResponse)
 	case "container":
 		list["cData"] = containerJsonResponse
+		hlog.Log(hlog.TRACE, "list container result: %v", containerJsonResponse)
 	}
 
 	return list, nil

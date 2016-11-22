@@ -335,7 +335,7 @@ func (c *Container) BriefStatus() (s *apitypes.ContainerListResult) {
 
 func (c *Container) StatusString() string {
 	s := c.BriefStatus()
-	return strings.Join([]string{s.ContainerID, s.ContainerName, s.PodID, s.Status}, "")
+	return strings.Join([]string{s.ContainerID, s.ContainerName, s.PodID, s.Status}, ":")
 }
 
 func (c *Container) HasTty() bool {
