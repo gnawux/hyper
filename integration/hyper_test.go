@@ -380,10 +380,11 @@ func (s *TestSuite) TestStartAndStopPod(c *C) {
 
 	podInfo, err = s.client.GetPodInfo(pod)
 	c.Assert(err, IsNil)
-	c.Assert(podInfo.Status.Phase, Equals, "Failed")
 
 	err = s.client.RemovePod(pod)
 	c.Assert(err, IsNil)
+
+	c.Assert(podInfo.Status.Phase, Equals, "Failed")
 }
 
 func (s *TestSuite) TestSetPodLabels(c *C) {

@@ -44,6 +44,7 @@ type ContainerStatus struct {
 	StartedAt  time.Time
 	FinishedAt time.Time
 	ExitCode   int
+	Killed     bool
 
 	sync.RWMutex
 }
@@ -188,12 +189,12 @@ func (c *Container) InfoStatus() *apitypes.ContainerStatus {
 			s.Terminated.StartedAt = c.status.StartedAt.Format(time.RFC3339)
 			s.Terminated.FinishedAt = c.status.FinishedAt.Format(time.RFC3339)
 			s.Terminated.ExitCode = int32(c.status.ExitCode)
-			if c.status.ExitCode == 0 {
-				s.Terminated.Reason = "Succeeded"
-				s.Phase = "succeeded"
-			} else {
+			if c.status.ExitCode != 0 || c.status.Killed {
 				s.Terminated.Reason = "Failed"
 				s.Phase = "failed"
+			} else {
+				s.Terminated.Reason = "Succeeded"
+				s.Phase = "succeeded"
 			}
 		} else {
 			s.Waiting.Reason = "Pending"
@@ -203,6 +204,7 @@ func (c *Container) InfoStatus() *apitypes.ContainerStatus {
 		s.Phase = "running"
 		s.Running.StartedAt = c.status.StartedAt.Format(time.RFC3339)
 	}
+	c.Log(DEBUG, "retrive info %#v from status %#v", s, c.status)
 	return s
 }
 
@@ -226,8 +228,14 @@ func (c *Container) start() error {
 	c.Log(INFO, "start container")
 	c.p.sandbox.StartContainer(c.Id())
 	c.Log(DEBUG, "container started")
+	c.status.Running(time.Now())
 
 	return nil
+}
+
+func (c *Container) setKill() {
+	c.status.SetKilled()
+	c.Log(DEBUG, "set container to be killed %#v", c.status)
 }
 
 func (c *Container) Remove() error {
@@ -938,7 +946,7 @@ func (c *Container) waitFinish(timeout int) {
 				firstStop = c.status.UnexpectedStopped()
 			}
 		} else {
-			c.Log(INFO, "container exited with code %v", r.Code)
+			c.Log(INFO, "container exited with code %v (at %v)", r.Code, r.FinishedAt)
 			firstStop = c.status.Stopped(r.FinishedAt, r.Code)
 		}
 	}
@@ -964,6 +972,7 @@ func (c *Container) terminate() (err error) {
 	}()
 
 	sig := utils.StringToSignal(c.descript.StopSignal)
+	c.setKill()
 	c.Log(DEBUG, "stopping: killing container with %d", sig)
 	err = c.p.sandbox.KillContainer(c.Id(), sig)
 	if err != nil {
@@ -1068,9 +1077,16 @@ func (cs *ContainerStatus) Start() error {
 		return fmt.Errorf("only CREATING container could be set to creatd, current: %d", cs.State)
 	}
 
+	cs.Killed = false
 	cs.State = S_CONTAINER_RUNNING
 
 	return nil
+}
+
+func (cs *ContainerStatus) SetKilled() {
+	cs.Lock()
+	cs.Killed = true
+	cs.Unlock()
 }
 
 func (cs *ContainerStatus) Running(t time.Time) error {
@@ -1096,16 +1112,16 @@ func (cs *ContainerStatus) Stop() error {
 }
 
 func (cs *ContainerStatus) Stopped(t time.Time, exitCode int) bool {
+	var result bool
 	cs.Lock()
-	defer cs.Unlock()
-
-	cs.State = S_CONTAINER_CREATED
 	if cs.State == S_CONTAINER_RUNNING || cs.State == S_CONTAINER_STOPPING {
 		cs.FinishedAt = t
 		cs.ExitCode = exitCode
-		return true
+		result = true
 	}
-	return false
+	cs.State = S_CONTAINER_CREATED
+	cs.Unlock()
+	return result
 }
 
 func (cs *ContainerStatus) UnexpectedStopped() bool {

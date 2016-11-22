@@ -167,6 +167,13 @@ func (p *XPod) UnPause() error {
 }
 
 func (p *XPod) KillContainer(id string, sig int64) error {
+	c, ok := p.containers[id]
+	if !ok {
+		err := fmt.Errorf("pod does not have a container %s", id)
+		p.Log(ERROR, err)
+		return err
+	}
+	c.setKill()
 	return p.protectedSandboxOperation(
 		func(sb *hypervisor.Vm) error {
 			return sb.KillContainer(id, syscall.Signal(sig))
