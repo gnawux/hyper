@@ -18,7 +18,7 @@ func (daemon *Daemon) ExitCode(containerId, execId string) (int, error) {
 
 	glog.V(1).Infof("Get Exec Code for container %s", containerId)
 
-	code, err := p.GetExecExitCode(id, execId)
+	code, err := p.GetExitCode(id, execId)
 	return int(code), err
 }
 

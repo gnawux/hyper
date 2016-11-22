@@ -338,6 +338,16 @@ func (c *Container) StatusString() string {
 	return strings.Join([]string{s.ContainerID, s.ContainerName, s.PodID, s.Status}, ":")
 }
 
+func (c *Container) GetExitCode() (uint8, error) {
+	c.status.RLock()
+	code := uint8(c.status.ExitCode)
+	if c.status.Killed {
+		code = uint8(137)
+	}
+	c.status.RUnlock()
+	return code, nil
+}
+
 func (c *Container) HasTty() bool {
 	return c.spec.Tty
 }

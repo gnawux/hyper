@@ -215,6 +215,18 @@ func (p *XPod) SandboxStatusString() string {
 	return ""
 }
 
+func (p *XPod) GetExitCode(cid, execId string) (uint8, error) {
+	if execId != "" {
+		return p.GetExecExitCode(cid, execId)
+	}
+	if c, ok := p.containers[cid]; ok {
+		return c.GetExitCode()
+	}
+	err := fmt.Errorf("cannot find container %s", cid)
+	p.Log(ERROR, "failed to get exit code: %v", err)
+	return 255, err
+}
+
 func (p *XPod) ContainerBriefStatus(cid string) *apitypes.ContainerListResult {
 	if c, ok := p.containers[cid]; ok {
 		return c.BriefStatus()
