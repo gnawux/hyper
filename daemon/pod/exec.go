@@ -3,9 +3,11 @@ package pod
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/docker/docker/pkg/stdcopy"
 
+	"github.com/hyperhq/hypercontainer-utils/hlog"
 	"github.com/hyperhq/hyperd/utils"
 	"github.com/hyperhq/runv/hypervisor"
 	"github.com/hyperhq/runv/hypervisor/types"
@@ -17,6 +19,17 @@ type Exec struct {
 	Cmds      string
 	Terminal  bool
 	ExitCode  uint8
+
+	logPrefix string
+	finChan   chan bool
+}
+
+func (e *Exec) LogPrefix() string {
+	return e.logPrefix
+}
+
+func (e *Exec) Log(level hlog.LogLevel, args ...interface{}) {
+	hlog.HLog(level, e, 1, args...)
 }
 
 func (p *XPod) CreateExec(containerId, cmds string, terminal bool) (string, error) {
@@ -42,6 +55,8 @@ func (p *XPod) CreateExec(containerId, cmds string, terminal bool) (string, erro
 		Cmds:      cmds,
 		Terminal:  terminal,
 		ExitCode:  255,
+		logPrefix: fmt.Sprintf("Pod[%s] Con[%s] Exec[%s] ", p.Id(), containerId[:12], execId),
+		finChan:   make(chan bool, 1),
 	}
 	p.statusLock.Unlock()
 
@@ -70,23 +85,38 @@ func (p *XPod) StartExec(stdin io.ReadCloser, stdout io.WriteCloser, containerId
 		tty.Stdout = stdcopy.NewStdWriter(stdout, stdcopy.Stdout)
 	}
 
+	var fin = true
+	for fin {
+		select {
+		case fin = <-es.finChan:
+			es.Log(DEBUG, "try to drain the sync chan")
+		default:
+			fin = false
+			es.Log(DEBUG, "the sync chan is empty")
+		}
+	}
+
 	go func(es *Exec) {
 		result := p.sandbox.WaitProcess(false, []string{execId}, -1)
 		if result == nil {
-			err := fmt.Errorf("can not wait exec %s for container %s", execId, containerId)
-			p.Log(ERROR, err)
+			es.Log(ERROR, "can not wait exec")
 			return
 		}
 
 		r, ok := <-result
 		if !ok {
-			err := fmt.Errorf("waiting exec %s of container %s interrupted", execId, containerId)
-			p.Log(ERROR, err)
+			es.Log(ERROR, "waiting exec interrupted")
 			return
 		}
 
-		p.Log(DEBUG, "exec %s of container %s terminated at %v with code %d", execId, containerId, r.FinishedAt, r.Code)
+		es.Log(DEBUG, "exec terminated at %v with code %d", r.FinishedAt, r.Code)
 		es.ExitCode = uint8(r.Code)
+		select {
+		case es.finChan <- true:
+			es.Log(DEBUG, "wake exec stopped chan")
+		default:
+			es.Log(WARNING, "exec already set as stopped")
+		}
 	}(es)
 
 	return p.sandbox.Exec(es.Container, es.Id, es.Cmds, es.Terminal, tty)
@@ -103,6 +133,15 @@ func (p *XPod) GetExecExitCode(containerId, execId string) (uint8, error) {
 		return 255, err
 	}
 
+	select {
+	case <-es.finChan:
+		es.finChan <- true
+	case <-time.After(time.Second * 10):
+		err := fmt.Errorf("wait exec exit code timeout")
+		es.Log(ERROR, err)
+		return 255, err
+	}
+	es.Log(INFO, "got exec exit code: %d", es.ExitCode)
 	return es.ExitCode, nil
 }
 
