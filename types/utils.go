@@ -80,6 +80,10 @@ func (p *UserPod) ReorganizeContainers(allowAbsent bool) error {
 			c.Name = fmt.Sprintf("%s-%s-%d", p.Id, img, idx)
 		}
 
+		if p.Tty && !c.Tty {
+			c.Tty = true
+		}
+
 		cv := []*UserVolumeReference{}
 		cf := []*UserFileReference{}
 

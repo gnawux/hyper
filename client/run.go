@@ -83,7 +83,10 @@ func (cli *HyperClient) HyperCmdRun(args ...string) (err error) {
 		code int
 		tty  = false
 	)
-	json.Unmarshal([]byte(podJson), &spec)
+	err = json.Unmarshal([]byte(podJson), &spec)
+	if err != nil {
+		return err
+	}
 
 	podId, code, err = cli.client.CreatePod(&spec)
 	if err != nil {
