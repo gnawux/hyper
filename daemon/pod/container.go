@@ -1004,7 +1004,11 @@ func (c *Container) removeFromSandbox() error {
 }
 
 func (c *Container) umountRootVol() error {
-	err := c.p.factory.sd.CleanupContainer(c.Id(), c.p.sandboxShareDir())
+	if c.descript == nil || c.descript.MountId == "" {
+		c.Log(DEBUG, "no root volume to umount")
+		return nil
+	}
+	err := c.p.factory.sd.CleanupContainer(c.descript.MountId, c.p.sandboxShareDir())
 	if err != nil {
 		c.Log(ERROR, "failed to umount root volume: %v", err)
 		return err
