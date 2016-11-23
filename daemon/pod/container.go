@@ -58,7 +58,8 @@ type Container struct {
 	descript *runv.ContainerDescription
 	status   *ContainerStatus
 
-	logger LogStatus
+	logger    LogStatus
+	logPrefix string
 }
 
 func newContainerStatus() *ContainerStatus {
@@ -76,6 +77,7 @@ func newContainer(p *XPod, spec *apitypes.UserContainer, create bool) (*Containe
 		spec:   spec,
 		status: newContainerStatus(),
 	}
+	c.updateLogPrefix()
 	if err := c.init(create); err != nil {
 		return nil, err
 	}
@@ -83,11 +85,20 @@ func newContainer(p *XPod, spec *apitypes.UserContainer, create bool) (*Containe
 }
 
 func (c *Container) LogPrefix() string {
-	return fmt.Sprintf("%sCon[%s(%s)] ", c.p.LogPrefix(), c.Id(), c.SpecName())
+	return c.logPrefix
 }
 
 func (c *Container) Log(level hlog.LogLevel, args ...interface{}) {
 	hlog.HLog(level, c, 1, args...)
+}
+
+func (c *Container) updateLogPrefix() {
+	if len(c.Id()) > 12 {
+		id := c.Id()
+		c.logPrefix = fmt.Sprintf("%sCon[%s(%s)] ", c.p.LogPrefix(), id[:12], c.SpecName())
+	} else {
+		c.logPrefix = fmt.Sprintf("%sCon[%s(%s)] ", c.p.LogPrefix(), c.Id(), c.SpecName())
+	}
 }
 
 // Container Info:
@@ -485,6 +496,7 @@ func (c *Container) createByEngine() (*dockertypes.ContainerJSON, error) {
 	}
 
 	c.spec.Id = ccs.ID
+	c.updateLogPrefix()
 	return rsp, nil
 }
 
