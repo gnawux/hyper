@@ -379,6 +379,7 @@ func (p *XPod) doStopPod(graceful int) error {
 		//whatever the result of stop container, go on shutdown vm
 		p.stopAllContainers(graceful)
 
+		p.Log(INFO, "all container killed (or failed), now shutdown sandbox")
 		result := sb.Shutdown()
 		if result.IsSuccess() {
 			p.Log(INFO, "pod is stopped")
@@ -447,20 +448,28 @@ func (p *XPod) stopContainers(cList []string, cMap map[string]bool, graceful int
 	resChan := p.sandbox.WaitProcess(true, cList, graceful)
 	errChan := make(chan *containerException, 1)
 
-	for cid, c := range p.containers {
-		if !c.IsRunning() {
+	for _, cid := range cList {
+		c, ok := p.containers[cid]
+		if !ok {
+			p.Log(WARNING, "no container %s to be stopped", cid)
 			delete(cMap, cid)
 			continue
 		}
-		go func(id string) {
+		if !c.IsRunning() {
+			c.Log(DEBUG, "container state %v is not running(3), ignore during stop", c.CurrentState())
+			delete(cMap, cid)
+			continue
+		}
+		go func(c *Container) {
+			c.Log(DEBUG, "now, stop container")
 			err := c.terminate()
 			if err != nil {
 				errChan <- &containerException{
-					id:  id,
+					id:  c.Id(),
 					err: err,
 				}
 			}
-		}(cid)
+		}(c)
 	}
 
 	if len(cMap) > 0 && resChan == nil {
