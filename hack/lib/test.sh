@@ -35,7 +35,7 @@ hyper::test::exitcode() {
 
 hyper::test::exec() {
   echo "Pod exec and exit code test"
-  id=$(sudo hyperctl run -t -d busybox /bin/sh | sed -ne "s/POD id is \(.*\)/\1/p")
+  id=$(sudo hyperctl run -d busybox /bin/sh | sed -ne "s/POD id is \(.*\)/\1/p")
   echo "test pod ID is $id"
   res=$(sudo hyperctl exec $id sh -c "exit 37" > /dev/null 2>&1 ; echo $?)
   echo "should return 37, return: $res"
