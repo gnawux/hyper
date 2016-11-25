@@ -40,11 +40,12 @@ func (p *XPod) generateServiceContainer(srvs []*apitypes.UserService) *apitypes.
 	}
 
 	return &apitypes.UserContainer{
-		Name:    ServiceDiscoveryContainerName(p.Id()),
-		Image:   servicediscovery.ServiceImage,
-		Command: []string{"haproxy", "-D", "-f", "/usr/local/etc/haproxy/haproxy.cfg", "-p", "/var/run/haproxy.pid"},
-		Volumes: []*apitypes.UserVolumeReference{serviceVolRef},
-		Type:    apitypes.UserContainer_SERVICE,
+		Name:       ServiceDiscoveryContainerName(p.Id()),
+		Image:      servicediscovery.ServiceImage,
+		Command:    []string{"haproxy", "-D", "-f", "/usr/local/etc/haproxy/haproxy.cfg", "-p", "/var/run/haproxy.pid"},
+		Volumes:    []*apitypes.UserVolumeReference{serviceVolRef},
+		Type:       apitypes.UserContainer_SERVICE,
+		StopSignal: "KILL",
 	}
 }
 

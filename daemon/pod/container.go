@@ -554,6 +554,9 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 		})
 	}
 
+	if c.spec.StopSignal != "" {
+		cdesc.StopSignal = c.spec.StopSignal
+	}
 	if strings.HasPrefix(cdesc.StopSignal, "SIG") {
 		cdesc.StopSignal = cdesc.StopSignal[len("SIG"):]
 	}
