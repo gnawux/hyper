@@ -523,9 +523,8 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 		Name:  cjson.Name, // will have a "/"
 		Image: cjson.Image,
 
-		Labels:        c.spec.Labels,
-		Tty:           c.spec.Tty,
-		RestartPolicy: c.spec.RestartPolicy,
+		Labels: c.spec.Labels,
+		Tty:    c.spec.Tty,
 
 		RootVolume: &runv.VolumeDescription{},
 		MountId:    mountId,
@@ -584,24 +583,25 @@ func (c *Container) describeContainer(cjson *dockertypes.ContainerJSON) (*runv.C
 	return cdesc, nil
 }
 
-func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string][]*runv.VolumeReference {
+func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string]*runv.VolumeReference {
 
 	var (
 		existed = make(map[string]*apitypes.UserVolume)
-		refs    = make(map[string][]*runv.VolumeReference)
+		refs    = make(map[string]*runv.VolumeReference)
 	)
 	for _, vol := range c.spec.Volumes {
 		existed[vol.Path] = vol.Detail
 		if r, ok := refs[vol.Volume]; !ok {
-			refs[vol.Volume] = []*runv.VolumeReference{{
-				Path:     vol.Path,
-				Name:     vol.Volume,
-				ReadOnly: vol.ReadOnly,
-			}}
+			refs[vol.Volume] = &runv.VolumeReference{
+				Name: vol.Volume,
+				MountPoints: []*runv.VolumeMount{{
+					Path:     vol.Path,
+					ReadOnly: vol.ReadOnly,
+				}},
+			}
 		} else {
-			refs[vol.Volume] = append(r, &runv.VolumeReference{
+			r.MountPoints = append(r.MountPoints, &runv.VolumeMount{
 				Path:     vol.Path,
-				Name:     vol.Volume,
 				ReadOnly: vol.ReadOnly,
 			})
 		}
@@ -629,11 +629,13 @@ func (c *Container) parseVolumes(cjson *dockertypes.ContainerJSON) map[string][]
 		}
 
 		c.spec.Volumes = append(c.spec.Volumes, &r)
-		refs[n] = []*runv.VolumeReference{{
-			Path:     tgt,
-			Name:     n,
-			ReadOnly: false,
-		}}
+		refs[n] = &runv.VolumeReference{
+			Name: n,
+			MountPoints: []*runv.VolumeMount{{
+				Path:     tgt,
+				ReadOnly: false,
+			}},
+		}
 	}
 
 	return refs

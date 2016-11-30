@@ -22,11 +22,6 @@ type ContainerContext struct {
 }
 
 func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
-	restart := "never"
-	if cc.RestartPolicy != "" {
-		restart = cc.RestartPolicy
-	}
-
 	rootfsType := ""
 	if !cc.RootVolume.IsDir() {
 		rootfsType = cc.RootVolume.Fstype
@@ -40,7 +35,7 @@ func (cc *ContainerContext) VmSpec() *hyperstartapi.Container {
 		Fsmap:         cc.fsmap,
 		Process:       cc.process,
 		Sysctl:        cc.Sysctl,
-		RestartPolicy: restart,
+		RestartPolicy: "never",
 		Initialize:    cc.Initialize,
 	}
 
@@ -66,13 +61,13 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 			return
 		}
 
-		for _, vc := range vcs {
+		for _, mp := range vcs.MountPoints {
 			if vol.IsDir() {
 				cc.Log(DEBUG, "volume (fs mapping) %s is ready", vn)
 				cc.fsmap = append(cc.fsmap, &hyperstartapi.FsmapDescriptor{
 					Source:       vol.Filename,
-					Path:         vc.Path,
-					ReadOnly:     vc.ReadOnly,
+					Path:         mp.Path,
+					ReadOnly:     mp.ReadOnly,
 					DockerVolume: vol.DockerVolume,
 				})
 			} else {
@@ -80,9 +75,9 @@ func (cc *ContainerContext) add(wgDisk *sync.WaitGroup, result chan api.Result) 
 				cc.vmVolumes = append(cc.vmVolumes, &hyperstartapi.VolumeDescriptor{
 					Device:       vol.DeviceName,
 					Addr:         vol.ScsiAddr,
-					Mount:        vc.Path,
+					Mount:        mp.Path,
 					Fstype:       vol.Fstype,
-					ReadOnly:     vc.ReadOnly,
+					ReadOnly:     mp.ReadOnly,
 					DockerVolume: vol.DockerVolume,
 				})
 			}
