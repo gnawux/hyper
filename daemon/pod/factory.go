@@ -8,6 +8,7 @@ import (
 	dockertypes "github.com/docker/engine-api/types"
 
 	"github.com/hyperhq/hypercontainer-utils/hlog"
+	"github.com/hyperhq/hyperd/daemon/daemondb"
 	apitypes "github.com/hyperhq/hyperd/types"
 	"github.com/hyperhq/hyperd/utils"
 	runv "github.com/hyperhq/runv/api"
@@ -40,6 +41,7 @@ type GlobalLogConfig struct {
 type PodFactory struct {
 	sd         PodStorage
 	registry   *PodList
+	db         *daemondb.DaemonDB
 	engine     ContainerEngine
 	vmFactory  factory.Factory
 	hosts      *utils.Initializer
@@ -53,7 +55,7 @@ type LogStatus struct {
 	LogPath string
 }
 
-func NewPodFactory(vmFactory factory.Factory, registry *PodList, sd PodStorage, eng ContainerEngine, logCfg *GlobalLogConfig) *PodFactory {
+func NewPodFactory(vmFactory factory.Factory, registry *PodList, db *daemondb.DaemonDB, sd PodStorage, eng ContainerEngine, logCfg *GlobalLogConfig) *PodFactory {
 	return &PodFactory{
 		sd:        sd,
 		registry:  registry,

@@ -7,6 +7,7 @@ Package types is a generated protocol buffer package.
 
 It is generated from these files:
 	types.proto
+	persist.proto
 
 It has these top-level messages:
 	ContainerPort
@@ -127,6 +128,12 @@ It has these top-level messages:
 	PodStatsResponse
 	PingRequest
 	PingResponse
+	PersistPodLayout
+	PersistPodMeta
+	SandboxPersistInfo
+	PersistContainer
+	PersistVolume
+	PersistInterface
 */
 package types
 
