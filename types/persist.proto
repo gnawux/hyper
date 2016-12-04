@@ -19,6 +19,7 @@ message PersistPodMeta {
     string id = 1;
     repeated UserService services = 11;
     map<string, string> labels = 12;
+    int64 createdAt = 21;
 }
 
 message SandboxPersistInfo {

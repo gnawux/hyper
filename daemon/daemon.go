@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -46,7 +45,7 @@ func (daemon *Daemon) Restore() error {
 		return nil
 	}
 
-	ch := daemon.db.GetAllPods()
+	ch := pod.LoadAllPods(daemon.db)
 	if ch == nil {
 		estr := "Cannot list pods in leveldb"
 		glog.Error(estr)
@@ -54,38 +53,22 @@ func (daemon *Daemon) Restore() error {
 	}
 
 	for {
-		item, ok := <-ch
+		layout, ok := <-ch
 		if !ok {
 			break
 		}
-		if item == nil {
+		if layout == nil {
 			estr := "error during load pods from leveldb"
 			glog.Error(estr)
 			return errors.New(estr)
 		}
 
-		podId := string(item.K[4:])
-
-		glog.V(1).Infof("reloading pod %s with args %s", podId, string(item.V))
-
-		daemon.db.DeletePod(podId)
-
-		var podSpec apitypes.UserPod
-		err := json.Unmarshal(item.V, &podSpec)
-		if err != nil {
-			return err
-		}
-
-		vmId, err := daemon.db.GetP2V(podId)
-		if err != nil {
-			glog.V(1).Infof("no existing VM for pod %s: %v", podId, err)
-		}
-
+		glog.V(1).Infof("reloading pod %s: %#v", layout.Id, layout)
 		fc := pod.NewPodFactory(daemon.Factory, daemon.PodList, daemon.db, daemon.Storage, daemon.Daemon, daemon.DefaultLog)
 
-		p, err := pod.LoadXPod(fc, &podSpec, vmId)
+		p, err := pod.LoadXPod(fc, layout)
 		if err != nil {
-			glog.Warningf("Got a unexpected error when creating(load) pod %s, %v", podId, err)
+			glog.Warningf("Got a unexpected error when creating(load) pod %s, %v", layout.Id, err)
 			continue
 		}
 

@@ -27,9 +27,10 @@ func (m *PersistPodLayout) String() string { return proto.CompactTextString(m) }
 func (*PersistPodLayout) ProtoMessage()    {}
 
 type PersistPodMeta struct {
-	Id       string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Services []*UserService    `protobuf:"bytes,11,rep,name=services" json:"services,omitempty"`
-	Labels   map[string]string `protobuf:"bytes,12,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Id        string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Services  []*UserService    `protobuf:"bytes,11,rep,name=services" json:"services,omitempty"`
+	Labels    map[string]string `protobuf:"bytes,12,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	CreatedAt int64             `protobuf:"varint,21,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
 }
 
 func (m *PersistPodMeta) Reset()         { *m = PersistPodMeta{} }

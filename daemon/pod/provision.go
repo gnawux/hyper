@@ -18,43 +18,6 @@ var (
 	ProvisionTimeout = 5 * time.Minute
 )
 
-func LoadXPod(factory *PodFactory, spec *apitypes.UserPod, sandboxId string) (*XPod, error) {
-	p, err := newXPod(factory, spec)
-	if err != nil {
-		hlog.Log(ERROR, "failed to create pod from spec: %v", err)
-		//remove spec from daemonDB
-		//remove vm from daemonDB
-		return nil, err
-	}
-	err = p.reserveNames(spec.Containers)
-	if err != nil {
-		return nil, err
-	}
-	err = p.reconnectSandbox(sandboxId)
-	if err != nil {
-		//remove vm from daemonDB
-		return nil, err
-	}
-
-	err = p.initResources(spec, false)
-	if err != nil {
-		return nil, err
-	}
-
-	if p.info == nil { // TODO: try load info from db
-		p.initPodInfo()
-	}
-	//resume logging
-	if p.status == S_POD_RUNNING {
-		for _, c := range p.containers {
-			c.startLogging()
-		}
-	}
-
-	// don't need to reserve name again, because this is load
-	return p, nil
-}
-
 func CreateXPod(factory *PodFactory, spec *apitypes.UserPod) (*XPod, error) {
 
 	p, err := newXPod(factory, spec)
@@ -282,7 +245,7 @@ func (p *XPod) createSandbox(spec *apitypes.UserPod) error {
 	return nil
 }
 
-func (p *XPod) reconnectSandbox(sandboxId string) error {
+func (p *XPod) reconnectSandbox(sandboxId string, pinfo []byte) error {
 	var (
 		sandbox *hypervisor.Vm
 		err     error
