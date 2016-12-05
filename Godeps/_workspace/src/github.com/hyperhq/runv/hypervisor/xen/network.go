@@ -7,7 +7,6 @@ import (
 
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
-	"github.com/hyperhq/runv/hypervisor/pod"
 )
 
 func (xd *XenDriver) BuildinNetwork() bool {

@@ -329,7 +329,7 @@ func (pts *pseudoTtys) Close(ctx *VmContext, session uint64, code uint8) {
 			select {
 			case <-ack:
 				ctx.Log(TRACE, "report event %s finish: done", id)
-			case <-time.After(5*time.Minute):
+			case <-time.After(5 * time.Minute):
 				ctx.Log(TRACE, "report event %s finish: timeout", id)
 			}
 		}

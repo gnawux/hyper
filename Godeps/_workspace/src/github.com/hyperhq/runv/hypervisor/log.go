@@ -38,4 +38,3 @@ func (cc *ContainerContext) LogPrefix() string {
 func (cc *ContainerContext) Log(level hlog.LogLevel, args ...interface{}) {
 	hlog.HLog(level, cc, 1, args...)
 }
-

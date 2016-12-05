@@ -63,7 +63,7 @@ func waitConsoleOutput(ctx *VmContext) {
 	go TtyLiner(tc, cout)
 
 	const ignoreLines = 128
-	for consoleLines := 0 ; consoleLines < ignoreLines; consoleLines++ {
+	for consoleLines := 0; consoleLines < ignoreLines; consoleLines++ {
 		line, ok := <-cout
 		if ok {
 			ctx.Log(EXTRA, "[CNL] %s", line)

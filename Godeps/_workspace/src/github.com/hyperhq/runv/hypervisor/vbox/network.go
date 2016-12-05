@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"github.com/golang/glog"
 	"github.com/hyperhq/runv/api"
 	"github.com/hyperhq/runv/hypervisor/network"
-	"github.com/hyperhq/runv/hypervisor/pod"
-	"github.com/hyperhq/runv/lib/govbox"
 )
 
 func (vd *VBoxDriver) BuildinNetwork() bool {
@@ -61,56 +58,6 @@ func (vd *VBoxDriver) InitNetwork(bIface, bIP string, disableIptables bool) erro
 		}
 	}
 
-	return nil
-}
-
-func SetupPortMaps(vmId string, containerip string, maps []pod.UserContainerPort) error {
-	if len(maps) == 0 {
-		return nil
-	}
-
-	for _, m := range maps {
-		var proto string
-
-		if strings.EqualFold(m.Protocol, "udp") {
-			proto = "udp"
-		} else {
-			proto = "tcp"
-		}
-
-		rule := virtualbox.PFRule{}
-		rule.Proto = virtualbox.PFProto(proto)
-		rule.HostIP = nil
-		rule.HostPort = uint16(m.HostPort)
-		rule.GuestIP = net.ParseIP(containerip)
-		rule.GuestPort = uint16(m.ContainerPort)
-		err := virtualbox.SetNATPF(vmId, 1, vmId, rule)
-		if err != nil {
-			return err
-		}
-
-		err = network.PortMapper.AllocateMap(m.Protocol, m.HostPort, containerip, m.ContainerPort)
-		if err != nil {
-			return err
-		}
-	}
-	/* forbid to map ports twice */
-	return nil
-}
-
-func ReleasePortMaps(vmId string, containerip string, maps []pod.UserContainerPort) error {
-	if len(maps) == 0 {
-		return nil
-	}
-
-	for _, m := range maps {
-		glog.V(1).Infof("release port map %d", m.HostPort)
-		err := network.PortMapper.ReleaseMap(m.Protocol, m.HostPort)
-		if err != nil {
-			continue
-		}
-	}
-	/* forbid to map ports twice */
 	return nil
 }
 

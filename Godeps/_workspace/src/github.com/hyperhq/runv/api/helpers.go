@@ -1,8 +1,8 @@
 package api
 
 import (
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -19,21 +19,21 @@ func SandboxInfoFromOCF(s *specs.Spec) *SandboxConfig {
 
 func ContainerDescriptionFromOCF(id string, s *specs.Spec) *ContainerDescription {
 	container := &ContainerDescription{
-		Id:            id,
-		Name:          s.Hostname,
-		Image:         "",
-		Labels:        make(map[string]string),
-		Tty:           s.Process.Terminal,
-		RootVolume:    nil,
-		MountId:       "",
-		RootPath:      "rootfs",
-		UGI:           UGIFromOCF(&s.Process.User),
-		Envs:          make(map[string]string),
-		Workdir:       s.Process.Cwd,
-		Path:          s.Process.Args[0],
-		Args:          s.Process.Args[1:],
-		Rlimits:       []*Rlimit{},
-		Sysctl:        s.Linux.Sysctl,
+		Id:         id,
+		Name:       s.Hostname,
+		Image:      "",
+		Labels:     make(map[string]string),
+		Tty:        s.Process.Terminal,
+		RootVolume: nil,
+		MountId:    "",
+		RootPath:   "rootfs",
+		UGI:        UGIFromOCF(&s.Process.User),
+		Envs:       make(map[string]string),
+		Workdir:    s.Process.Cwd,
+		Path:       s.Process.Args[0],
+		Args:       s.Process.Args[1:],
+		Rlimits:    []*Rlimit{},
+		Sysctl:     s.Linux.Sysctl,
 	}
 
 	for _, value := range s.Process.Env {
@@ -82,4 +82,3 @@ func UGIFromOCF(u *specs.User) *UserGroupInfo {
 
 	return ugi
 }
-
